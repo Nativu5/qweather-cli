@@ -3,17 +3,28 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/Nativu5/qweather-cli/internal/catalog"
 	"github.com/Nativu5/qweather-cli/internal/cli"
 	"github.com/Nativu5/qweather-cli/internal/config"
 	"github.com/Nativu5/qweather-cli/internal/output"
+	"github.com/Nativu5/qweather-cli/internal/place"
 	"github.com/Nativu5/qweather-cli/internal/qweather"
 )
 
 type ConfigLoader func(context.Context, config.Options) (config.Effective, config.Diagnostics, error)
 type ClientFactory func(config.Effective) (qweather.Doer, error)
-type RequestCompiler func(catalog.Capability, catalog.Input, map[string]bool) (qweather.Request, *output.Problem)
+
+type RequestParameters struct {
+	Input    catalog.Input
+	Changed  map[string]bool
+	Language string
+	Unit     string
+	Resolved place.Resolved
+}
+
+type RequestCompiler func(catalog.Capability, RequestParameters) (qweather.Request, *output.Problem)
 
 type Runtime struct {
 	loadConfig ConfigLoader
@@ -57,10 +68,6 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 	if err != nil {
 		return nil, configProblem(invocation.Capability.ID, err)
 	}
-	request, problem := r.compile(invocation.Capability, invocation.Input, invocation.Changed)
-	if problem != nil {
-		return nil, problem
-	}
 	client, err := r.newClient(effective)
 	if err != nil {
 		problem := output.NewProblem(3, "CONFIG_INVALID", "provider client configuration is invalid")
@@ -70,6 +77,18 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 	}
 	requestContext, cancel := context.WithTimeout(ctx, invocation.Common.Timeout)
 	defer cancel()
+	resolved, operations, problem := r.resolvePlace(requestContext, client, invocation, effective.Language)
+	if problem != nil {
+		problem.Capability = invocation.Capability.ID
+		return nil, problem
+	}
+	request, problem := r.compile(invocation.Capability, RequestParameters{
+		Input: invocation.Input, Changed: invocation.Changed,
+		Language: effective.Language, Unit: effective.Unit, Resolved: resolved,
+	})
+	if problem != nil {
+		return nil, problem
+	}
 	response, err := client.Do(requestContext, request)
 	if err != nil {
 		return nil, qweather.ProblemForError(err, invocation.Capability.ID)
@@ -78,18 +97,85 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 	if problem != nil {
 		return nil, problem
 	}
-	return &output.Result{
+	operations = append(operations, invocation.Capability.ID)
+	result := &output.Result{
 		Schema:       output.ResultSchema,
 		Outcome:      classified.Outcome,
 		Capability:   invocation.Capability.ID,
-		Operations:   []string{invocation.Capability.ID},
+		Operations:   operations,
 		Policy:       output.Policy{BillingGroup: string(invocation.Capability.BillingGroup)},
 		Cache:        output.Cache{Status: "disabled", UpstreamRequested: true},
 		Upstream:     output.Upstream{HTTPStatus: response.StatusCode, ResponseFamily: string(invocation.Capability.Upstream.ResponseFamily)},
 		Attribution:  classified.Attribution,
 		Data:         classified.Data,
 		ProviderBody: append([]byte(nil), response.Body...),
-	}, nil
+	}
+	if isPlaceTarget(invocation.Capability.Target) {
+		result.ResolvedPlace = resolved.Output()
+	}
+	return result, nil
+}
+
+func (r *Runtime) resolvePlace(ctx context.Context, client qweather.Doer, invocation cli.Invocation, language string) (place.Resolved, []string, *output.Problem) {
+	if !isPlaceTarget(invocation.Capability.Target) {
+		return place.Resolved{}, nil, nil
+	}
+	spec, err := place.Parse(invocation.Input.Place, invocation.Input.PlaceID, invocation.Input.Coordinate, invocation.Input.Country, invocation.Input.Adm)
+	if err != nil {
+		problem := output.NewProblem(2, "INVALID_INVOCATION", err.Error())
+		problem.Capability = invocation.Capability.ID
+		return place.Resolved{}, nil, problem
+	}
+	lookup := func(ctx context.Context, query place.LookupQuery) ([]place.Candidate, *output.Problem) {
+		values := url.Values{"number": {"20"}}
+		switch query.Spec.Kind {
+		case place.SpecName:
+			values.Set("location", query.Spec.Name)
+			if query.Spec.Country != "" {
+				values.Set("range", query.Spec.Country)
+			}
+			if query.Spec.Adm != "" {
+				values.Set("adm", query.Spec.Adm)
+			}
+		case place.SpecLocationID:
+			values.Set("location", query.Spec.LocationID)
+		case place.SpecCoordinate:
+			values.Set("location", query.Spec.Coordinate.ProviderQuery())
+		default:
+			return nil, output.NewProblem(10, "INTERNAL_ERROR", "place lookup received an unknown Place Spec")
+		}
+		if query.Language != "" && query.Language != "auto" {
+			values.Set("lang", query.Language)
+		}
+		response, err := client.Do(ctx, qweather.Request{
+			CapabilityID: "geo.city.lookup",
+			Path:         "/geo/v2/city/lookup",
+			Query:        values,
+		})
+		if err != nil {
+			return nil, qweather.ProblemForError(err, invocation.Capability.ID)
+		}
+		classified, problem := qweather.Classify(catalog.ResponseLegacyV1, response, invocation.Capability.ID)
+		if problem != nil {
+			return nil, problem
+		}
+		if classified.Outcome == "no_data" {
+			return nil, nil
+		}
+		candidates, decodeErr := place.DecodeCandidates(classified.Data)
+		if decodeErr != nil {
+			problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", "GeoAPI returned invalid place candidates")
+			problem.Capability = invocation.Capability.ID
+			problem.Cause = decodeErr
+			return nil, problem
+		}
+		return candidates, nil
+	}
+	return place.Resolve(ctx, spec, invocation.Capability.Target, language, lookup)
+}
+
+func isPlaceTarget(target catalog.TargetKind) bool {
+	return target == catalog.TargetPlace || target == catalog.TargetLocationID || target == catalog.TargetCoordinate
 }
 
 func (r *Runtime) CheckConfig(ctx context.Context, common cli.CommonOptions) (any, *output.Problem) {
@@ -108,7 +194,7 @@ func (*Runtime) CacheClear(context.Context, cli.CacheControlOptions) (any, *outp
 	return nil, output.NewProblem(10, "CONTROL_NOT_IMPLEMENTED", "persistent cache is not implemented")
 }
 
-func unavailableCompiler(capability catalog.Capability, _ catalog.Input, _ map[string]bool) (qweather.Request, *output.Problem) {
+func unavailableCompiler(capability catalog.Capability, _ RequestParameters) (qweather.Request, *output.Problem) {
 	problem := output.NewProblem(10, "CAPABILITY_NOT_IMPLEMENTED", "capability request mapping is not implemented")
 	problem.Capability = capability.ID
 	return qweather.Request{}, problem
