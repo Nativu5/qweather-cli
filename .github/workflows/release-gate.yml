@@ -23,7 +23,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       version: ${{ steps.release.outputs.version }}
-      expected_ref: ${{ steps.release.outputs.expected_ref }}
     steps:
       - name: Require a matching stable release branch
         id: release
@@ -41,7 +40,6 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "expected_ref=$expected_ref" >> "$GITHUB_OUTPUT"
 
   deterministic:
     name: deterministic gates
