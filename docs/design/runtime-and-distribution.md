@@ -193,14 +193,30 @@ skills/qweather/
     ├── places-and-errors.md
     ├── command-reference.md
     ├── result-schema.md
-    └── products-and-attribution.md
+    ├── products-and-attribution.md
+    └── upstream/
+        └── openapi/
+            ├── NOTICE.md
+            ├── manifest.json
+            ├── qweather-apis-en.yml
+            ├── qweather-apis-zh.yml
+            └── examples/
+                └── *.json
 ```
 
 `SKILL.md` is concise and contains only triggering metadata, command-selection workflow, installation check, place-error handling, Product Gate rules, cache-refresh guidance, and Attribution requirements. Detailed material is loaded from one-level references only when relevant.
 
 `command-reference.md`, schema tables, and stable problem-code tables are generated from the Go registry and contract definitions. Human workflow guidance remains hand-written. CI regenerates these files and fails when tracked output differs.
 
-The complete crawler output and research reports are not shipped. Curated references include official hyperlinks and `last_verified` dates. For volatile pricing, geography, alert, or lifecycle facts, the Skill checks an official QWeather link when the local catalog cannot answer safely.
+The `upstream/openapi/` directory is a verbatim snapshot from one reviewed commit of the official [`qwd/dev-site`](https://github.com/qwd/dev-site) repository. It contains both locale specifications and all 53 JSON files referenced by their relative `externalValue` links; generated upstream JSON and the rest of the site are excluded. The snapshot is distributed with the Skill only, not embedded in the Go binary or npm adapter.
+
+A deterministic maintainer sync pins the full upstream commit and records every distributed file's path, byte size, and SHA256 in `manifest.json`; CI verifies the snapshot and rejects unreviewed drift, missing local examples, or remote schema/example references. `NOTICE.md` records QWeather as the creator, the pinned source URLs and commit, the applicable [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) content license, unchanged status, and the separate QWeather Developers EULA boundary for API service and data use. The initial reviewed pin is `02bb257a032c503c65924005da6ebca48d94b390`.
+
+The English and Chinese specifications have the same operation inventory but are not structurally identical. Sync validation compares their path, method, operation ID, lifecycle, parameter, and response sets and reports schema differences for review; it never merges the locales or treats one as a lossless translation of the other.
+
+Agents use the generated command reference for the supported CLI surface and may consult the bundled OpenAPI only for upstream parameters, response schemas, and field descriptions. Deprecated paths or other specification details never imply an executable capability. For conflicts, prose-only constraints, and volatile pricing, geography, alert, or lifecycle facts, the curated project contract and current official documentation take precedence.
+
+The rest of the official site checkout and detailed research reports are not shipped. Curated references include official hyperlinks and `last_verified` dates.
 
 If `qweather` is absent, the Skill prints a fixed-version npm installation command and waits for the user. It never installs software itself.
 
@@ -272,6 +288,7 @@ The project uses focused unit tests and a small approved smoke surface:
 - JWT signing with a fixed clock;
 - representative result/problem and exit-code behaviour;
 - npm platform selection, SHA256 success/failure, and missing-binary guidance;
+- pinned OpenAPI snapshot integrity, local-example closure, locale contract comparison, source attribution, and reviewed-drift detection;
 - cross-compilation of the six release targets; and
 - manual or approved smoke checks for Geo plus current weather, one modern response family, and npm install/version.
 

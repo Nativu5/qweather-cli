@@ -120,7 +120,9 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
   public behaviour changes.
 - Prefer primary official sources. Link to the relevant QWeather page rather
   than copying large sections of external documentation.
-- Keep crawled documentation and detailed research out of distributed artifacts.
+- Keep local upstream checkouts and detailed research out of distributed
+  artifacts. Redistribute only upstream files approved by the distribution
+  contract, with their required source and license attribution.
 - Create an ADR only for a hard-to-reverse decision with a real trade-off.
 
 ## Definition of done
