@@ -98,8 +98,9 @@ authorizes its credentials and quota.
    final commit.
 2. Push the branch and open one Draft PR using the repository template. Link the
    Issue with `Closes #<number>`.
-3. Record the PR URL, exact base commit SHA, and exact head commit SHA. Reviewers
-   must evaluate that fixed range, not a moving branch name alone.
+3. Record the PR URL, full 40-character base commit SHA, full 40-character head
+   commit SHA, and exact diff command. Reviewers must evaluate that fixed range,
+   not a moving branch name alone.
 4. Target `main` for ordinary integration. Release work follows the dedicated
    release policy and never converts a normal `main` merge into a publication.
 
@@ -123,7 +124,8 @@ Each reviewer reports actionable findings with severity, file and line when
 possible, evidence, and a PASS/FAIL conclusion. Post the Standards report and
 the Spec report as distinct comments or formal reviews on the Draft PR. When
 SubAgents do not have separate GitHub identities, the coordinator posts each
-report with its reviewer context and reviewed head SHA intact.
+report with its reviewer context, full reviewed base/head SHAs, and exact diff
+command intact.
 
 Fix all accepted blocking findings and explain any rejected finding with
 evidence. Material fixes must be re-reviewed on the affected axis. A material
