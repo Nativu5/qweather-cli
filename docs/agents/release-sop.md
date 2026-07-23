@@ -9,11 +9,17 @@ This SOP stops at a release-ready commit. Issue #8 owns packaging, tags, GitHub
 Releases, npm publication, and public distribution. Until #8 implements that
 separate flow, a passing gate is not a published release.
 
+The read-only workflow may be merged before release credentials are provisioned.
+Issue #20 must be completed before the first real release: it adds a supported
+required-reviewer rule and the two Environment-scoped secrets. Until then, do
+not dispatch the live gate and do not treat the repository as release ready.
+
 ## Roles and durable records
 
 - A release Issue names one release owner, stable SemVer, source `main` SHA,
   release-branch head SHA, scope, and go/no-go decision.
-- Protected Environment reviewers authorize the quota-consuming smoke job.
+- Once #20 is complete, protected Environment reviewers authorize the
+  quota-consuming smoke job.
 - The Release gate workflow proves deterministic gates and three approved live
   Basic calls for one exact release-branch commit.
 - Issue #8 consumes the passing workflow URL, version, and exact commit SHA for
@@ -67,6 +73,11 @@ gh workflow run release-gate.yml \
   --ref release/vX.Y.Z \
   -f version=X.Y.Z
 ```
+
+Before dispatch, verify #20 is closed and the Environment still has its required
+reviewer rule, `release/v*` branch policy, and exactly the two expected secret
+names. Missing credentials are a safe pre-release stop, not a reason to add
+repository-level fallbacks or placeholder values.
 
 The workflow hard-fails unless the version is stable SemVer and the selected ref
 is exactly `refs/heads/release/v<version>`. It then:

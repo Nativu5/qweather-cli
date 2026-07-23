@@ -50,10 +50,12 @@ does not log successful provider bodies or secrets.
 The normal execution path is the manual `.github/workflows/release-gate.yml`
 workflow on an exact `release/vX.Y.Z` branch and its protected
 `qweather-release-smoke` Environment. Follow the
-[release branch SOP](./release-sop.md). Do not run the suite from a PR, a `main`
-workflow, a schedule, or an unapproved local shell. When an approved diagnostic
-run is necessary, inject the host and key through a protected secret source,
-build the binary first, and run only:
+[release branch SOP](./release-sop.md). The workflow may exist before its
+required-reviewer rule and secrets, but Issue #20 must close before any live
+run. Do not run the suite from a PR, a `main` workflow, a schedule, or an
+unapproved local shell. When an approved diagnostic run is necessary, inject
+the host and key through a protected secret source, build the binary first, and
+run only:
 
 ```sh
 export QWEATHER_E2E_BINARY="$PWD/qweather"
