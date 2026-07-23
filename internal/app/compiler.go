@@ -33,7 +33,7 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 		request.Path = "/geo/v2/city/lookup"
 		query.Set("location", location)
 		if strings.TrimSpace(input.Query) != "" {
-			if value := strings.TrimSpace(input.Country); value != "" {
+			if value := providerCountry(input.Country); value != "" {
 				query.Set("range", value)
 			}
 			if value := strings.TrimSpace(input.Adm); value != "" {
@@ -49,7 +49,7 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 
 	case "geo.city.top":
 		request.Path = "/geo/v2/city/top"
-		if value := strings.TrimSpace(input.Country); value != "" {
+		if value := providerCountry(input.Country); value != "" {
 			query.Set("range", value)
 		}
 		if problem := setLimit(query, input.Limit, capability.ID); problem != nil {
@@ -296,6 +296,10 @@ func requireCoordinate(resolved place.Resolved, capabilityID string) (place.Coor
 
 func modernCoordinatePath(base string, coordinate place.Coordinate) string {
 	return base + "/" + coordinate.LatText + "/" + coordinate.LonText
+}
+
+func providerCountry(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 func providerPOIType(value, capabilityID string) (string, *output.Problem) {
