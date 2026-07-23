@@ -242,6 +242,13 @@ Private development releases may use `GH_TOKEN`. Public distribution uses unauth
 
 ## Release
 
+Daily integration on `main` never publishes or runs live smoke. Stable release
+validation is manual and valid only on an exact `release/vX.Y.Z` branch. The
+[release branch SOP](../agents/release-sop.md) defines branch creation,
+stabilization, approval, smoke, publication handoff, failure handling, and
+retirement. The read-only Release gate stops at a status for one exact source
+SHA; packaging and publication remain owned by Issue #8.
+
 ### Platform matrix
 
 | GOOS | GOARCH | Archive |

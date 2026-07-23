@@ -107,6 +107,8 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
 - Follow `docs/agents/development-sop.md` for non-trivial implementation work,
   including the required independent Standards and Spec reviews on a Draft pull
   request before it becomes Ready.
+- Follow `docs/agents/release-sop.md` for release branches, approved live smoke,
+  and the handoff to the independently scoped publication work.
 - Use the canonical triage labels documented in
   `docs/agents/triage-labels.md`.
 - Claim an actionable issue before implementation when the workflow requires
@@ -149,6 +151,7 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
 - Development SOP: `docs/agents/development-sop.md`
 - Upstream-change SOP: `docs/agents/upstream-change-sop.md`
 - Testing: `docs/agents/testing.md`
+- Release branch SOP: `docs/agents/release-sop.md`
 - Architecture: `docs/design/architecture.md`
 - CLI contract: `docs/design/cli-contract.md`
 - Runtime and distribution: `docs/design/runtime-and-distribution.md`
