@@ -64,7 +64,7 @@ func NewWithCache(loadConfig ConfigLoader, newClient ClientFactory, newCache Cac
 		}
 	}
 	if compile == nil {
-		compile = unavailableCompiler
+		compile = CompileRequest
 	}
 	return &Runtime{loadConfig: loadConfig, newClient: newClient, newCache: newCache, compile: compile, now: time.Now}
 }
@@ -89,6 +89,9 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 	effective, _, err := r.loadConfig(ctx, options)
 	if err != nil {
 		return nil, configProblem(invocation.Capability.ID, err)
+	}
+	if problem := validateEffectiveCapability(invocation.Capability, effective); problem != nil {
+		return nil, problem
 	}
 	client, err := r.newClient(effective)
 	if err != nil {
@@ -179,6 +182,13 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 		}
 	}
 	return buildResult(invocation.Capability, resolved, operations, response, classified, cacheMetadata), nil
+}
+
+func validateEffectiveCapability(capability catalog.Capability, effective config.Effective) *output.Problem {
+	if capability.ID == "weather.indices.forecast" || capability.ID == "weather.precipitation.minutely" {
+		return validateLimitedLanguage(effective.Language, capability.ID)
+	}
+	return nil
 }
 
 func buildResult(capability catalog.Capability, resolved place.Resolved, operations []string, response qweather.Response, classified qweather.Classified, cacheMetadata output.Cache) *output.Result {
@@ -300,12 +310,6 @@ func (r *Runtime) CacheClear(ctx context.Context, options cli.CacheControlOption
 		return nil, cacheProblem("", err)
 	}
 	return result, nil
-}
-
-func unavailableCompiler(capability catalog.Capability, _ RequestParameters) (qweather.Request, *output.Problem) {
-	problem := output.NewProblem(10, "CAPABILITY_NOT_IMPLEMENTED", "capability request mapping is not implemented")
-	problem.Capability = capability.ID
-	return qweather.Request{}, problem
 }
 
 func checkProductGate(invocation cli.Invocation) *output.Problem {

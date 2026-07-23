@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -162,6 +163,16 @@ func Resolve(ctx context.Context, spec Spec, target catalog.TargetKind, language
 		problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", "resolved place does not contain coordinates")
 		return Resolved{}, []string{"geo.city.lookup"}, problem
 	}
+	if target == catalog.TargetCoordinate {
+		coordinate, err := parseProviderCoordinate(selected.Lat, selected.Lon)
+		if err != nil {
+			problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", "resolved place contains invalid coordinates")
+			problem.Cause = err
+			return Resolved{}, []string{"geo.city.lookup"}, problem
+		}
+		selected.Lat = canonicalNumber(roundCoordinate(coordinate.Latitude))
+		selected.Lon = canonicalNumber(roundCoordinate(coordinate.Longitude))
+	}
 	if target == catalog.TargetLocationID && selected.ID == "" {
 		problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", "resolved place does not contain a Location ID")
 		return Resolved{}, []string{"geo.city.lookup"}, problem
@@ -279,6 +290,10 @@ func canonicalNumber(value float64) string {
 		return "0"
 	}
 	return strconv.FormatFloat(value, 'f', -1, 64)
+}
+
+func roundCoordinate(value float64) float64 {
+	return math.Round(value*100) / 100
 }
 
 func countNonEmpty(values ...string) int {

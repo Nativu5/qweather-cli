@@ -2,13 +2,18 @@ package cli
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Nativu5/qweather-cli/internal/catalog"
 	"github.com/Nativu5/qweather-cli/internal/output"
+	"github.com/Nativu5/qweather-cli/internal/place"
 	"github.com/spf13/cobra"
 )
+
+var providerPathID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
 func bindCapabilityFlags(command *cobra.Command, input *catalog.Input, flags []catalog.Flag) error {
 	for _, flag := range flags {
@@ -111,6 +116,28 @@ func validateInvocation(capability catalog.Capability, input catalog.Input, comm
 	}
 	if capability.ID == "geo.city.lookup" && nonEmpty(input.Query, input.PlaceID, input.Coordinate) != 1 {
 		return invalid(capability.ID, "exactly one of --query, --place-id, or --coordinate is required")
+	}
+	if input.Coordinate != "" {
+		if _, err := place.ParseCoordinate(input.Coordinate); err != nil {
+			return invalid(capability.ID, err.Error())
+		}
+	}
+	if capability.ID == "geo.city.lookup" && (input.Country != "" || input.Adm != "") && strings.TrimSpace(input.Query) == "" {
+		return invalid(capability.ID, "--country and --adm require --query")
+	}
+	if input.Date != "" {
+		parsed, err := time.Parse("2006-01-02", input.Date)
+		if err != nil || parsed.Format("2006-01-02") != input.Date {
+			return invalid(capability.ID, "--date must use a real YYYY-MM-DD date")
+		}
+	}
+	if capability.Target == catalog.TargetAirStation && !providerPathID.MatchString(input.AirStationID) {
+		return invalid(capability.ID, "--air-station-id contains unsupported characters")
+	}
+	if (capability.ID == "weather.indices.forecast" || capability.ID == "weather.precipitation.minutely") && changed["lang"] {
+		if input.Language != "auto" && input.Language != "zh" && input.Language != "en" {
+			return invalid(capability.ID, "this capability supports only zh or en")
+		}
 	}
 	if capability.ID == "weather.indices.forecast" {
 		if input.AllIndices == (len(input.Indices) > 0) {

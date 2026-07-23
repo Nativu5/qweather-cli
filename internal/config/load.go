@@ -122,11 +122,11 @@ func Load(ctx context.Context, options Options) (Effective, Diagnostics, error) 
 		return Effective{}, diagnostics, err
 	}
 	if options.LanguageOverride != nil {
-		effective.Language = *options.LanguageOverride
+		effective.Language = strings.TrimSpace(*options.LanguageOverride)
 		diagnostics.ValueSources["language"] = "flag"
 	}
 	if options.UnitOverride != nil {
-		effective.Unit = *options.UnitOverride
+		effective.Unit = strings.TrimSpace(*options.UnitOverride)
 		diagnostics.ValueSources["unit"] = "flag"
 	}
 

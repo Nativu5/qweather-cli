@@ -148,6 +148,15 @@ func TestNetworkLeafParsesCommonAndTypedFlags(t *testing.T) {
 	}
 }
 
+func TestBodyOutputRemainsProviderOnly(t *testing.T) {
+	exit, stdout, stderr := runCommand(t, &recordingRuntime{},
+		"weather", "city", "current", "--place-id", "101010100", "--output", "body",
+	)
+	if exit != 0 || stderr != "" || stdout != "{\"code\":\"200\",\"now\":{\"temp\":\"20\"}}\n" {
+		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
+	}
+}
+
 func TestInvalidTypedInputUsesProblemEnvelope(t *testing.T) {
 	exit, stdout, stderr := runCommand(t, &recordingRuntime{},
 		"weather", "city", "daily", "--place-id", "101010100", "--days", "5",
@@ -157,6 +166,22 @@ func TestInvalidTypedInputUsesProblemEnvelope(t *testing.T) {
 	}
 	if !strings.Contains(stderr, `"schema":"qweather.problem/v1"`) || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) {
 		t.Fatalf("stderr = %q", stderr)
+	}
+}
+
+func TestSemanticInputValidationPrecedesRuntime(t *testing.T) {
+	tests := [][]string{
+		{"geo", "city", "lookup", "--coordinate", "geo:39.123,116.4"},
+		{"weather", "history", "--place-id", "101010100", "--date", "2026-02-30"},
+		{"air", "station", "--air-station-id", "../secret"},
+		{"weather", "minutely", "--coordinate", "geo:39.9,116.4", "--lang", "fr"},
+	}
+	for _, args := range tests {
+		runtime := &recordingRuntime{}
+		exit, stdout, stderr := runCommand(t, runtime, args...)
+		if exit != 2 || stdout != "" || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) || len(runtime.invocations) != 0 {
+			t.Fatalf("args=%v exit=%d stdout=%q stderr=%q invocations=%d", args, exit, stdout, stderr, len(runtime.invocations))
+		}
 	}
 }
 

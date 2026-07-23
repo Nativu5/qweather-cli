@@ -448,3 +448,56 @@ func TestRuntimeNeverCachesProviderErrors(t *testing.T) {
 		t.Fatalf("third=%#v problem=%v requests=%d", third, problem, len(doer.requests))
 	}
 }
+
+func TestDefaultCompilerExecutesModernResponseFamily(t *testing.T) {
+	effective := testEffective(t)
+	effective.Cache.Enabled = false
+	doer := &scriptedDoer{response: qweather.Response{
+		StatusCode: 200,
+		Body:       []byte(`{"metadata":{"attributions":[{"name":"QWeather"}]},"indexes":[],"futureField":{"kept":true}}`),
+	}}
+	runtime := New(
+		func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+			return effective, config.Diagnostics{}, nil
+		},
+		func(config.Effective) (qweather.Doer, error) { return doer, nil },
+		nil,
+	)
+	result, problem := runtime.Run(context.Background(), cli.Invocation{
+		Capability: capability(t, "air.current"), Input: catalog.Input{Coordinate: "geo:39.90,116.40"},
+		Common: cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+	})
+	if problem != nil {
+		t.Fatal(problem)
+	}
+	if len(doer.requests) != 1 || doer.requests[0].Path != "/airquality/v1/current/39.9/116.4" || doer.requests[0].Query.Get("lang") != "en" {
+		t.Fatalf("requests = %#v", doer.requests)
+	}
+	if result.Upstream.ResponseFamily != "modern-v1" || len(result.Attribution) != 1 || !strings.Contains(string(result.Data), `"futureField"`) {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestCapabilityLanguageValidationPrecedesClientAndGeo(t *testing.T) {
+	effective := testEffective(t)
+	effective.Language = "fr"
+	clients := 0
+	runtime := New(
+		func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+			return effective, config.Diagnostics{}, nil
+		},
+		func(config.Effective) (qweather.Doer, error) {
+			clients++
+			return &scriptedDoer{}, nil
+		},
+		nil,
+	)
+	_, problem := runtime.Run(context.Background(), cli.Invocation{
+		Capability: capability(t, "weather.indices.forecast"),
+		Input:      catalog.Input{Place: "Beijing", Days: 1, AllIndices: true},
+		Common:     cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+	})
+	if problem == nil || problem.ExitCode != 2 || clients != 0 {
+		t.Fatalf("problem=%#v clients=%d", problem, clients)
+	}
+}

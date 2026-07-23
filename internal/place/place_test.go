@@ -111,7 +111,7 @@ func TestResolveSelectsOnlyUniqueExactName(t *testing.T) {
 		}, nil
 	}
 	resolved, operations, problem := Resolve(context.Background(), spec, catalog.TargetCoordinate, "en", lookup)
-	if problem != nil || resolved.ID != "101010100" || resolved.Lat != "39.90499" || len(operations) != 1 || operations[0] != "geo.city.lookup" {
+	if problem != nil || resolved.ID != "101010100" || resolved.Lat != "39.9" || resolved.Lon != "116.41" || len(operations) != 1 || operations[0] != "geo.city.lookup" {
 		t.Fatalf("resolved=%#v operations=%#v problem=%v", resolved, operations, problem)
 	}
 }

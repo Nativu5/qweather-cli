@@ -31,7 +31,7 @@ func cacheFixture(t *testing.T) (*Store, Key, Record, *time.Time) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record, err := NewRecord(capability, "ok", qweather.Response{StatusCode: 200, Body: []byte(`{"code":"200","now":{"temp":"20"}}`)}, now, now.Add(10*time.Minute))
+	record, err := NewRecord(capability, "ok", qweather.Response{StatusCode: 200, Body: []byte("{\n  \"code\": \"200\",\n  \"now\": {\"temp\": \"20\"}\n}")}, now, now.Add(10*time.Minute))
 	if err != nil {
 		t.Fatal(err)
 	}
