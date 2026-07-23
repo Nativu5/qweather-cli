@@ -102,6 +102,9 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
   create or request one before expanding the work.
 - Use `gh` for issue operations and follow
   `docs/agents/issue-tracker.md`.
+- Follow `docs/agents/development-sop.md` for non-trivial implementation work,
+  including the required independent Standards and Spec reviews before opening
+  a pull request.
 - Use the canonical triage labels documented in
   `docs/agents/triage-labels.md`.
 - Claim an actionable issue before implementation when the workflow requires
@@ -120,6 +123,8 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
   public behaviour changes.
 - Prefer primary official sources. Link to the relevant QWeather page rather
   than copying large sections of external documentation.
+- Follow `docs/agents/upstream-change-sop.md` when an upstream document, API
+  operation, schema, example, policy, or license changes explicitly.
 - Keep local upstream checkouts and detailed research out of distributed
   artifacts. Redistribute only upstream files approved by the distribution
   contract, with their required source and license attribution.
@@ -139,6 +144,8 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
 - Issue workflow: `docs/agents/issue-tracker.md`
 - Triage labels: `docs/agents/triage-labels.md`
 - Domain-doc workflow: `docs/agents/domain.md`
+- Development SOP: `docs/agents/development-sop.md`
+- Upstream-change SOP: `docs/agents/upstream-change-sop.md`
 - Architecture: `docs/design/architecture.md`
 - CLI contract: `docs/design/cli-contract.md`
 - Runtime and distribution: `docs/design/runtime-and-distribution.md`
