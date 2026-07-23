@@ -145,11 +145,12 @@ smoke is reserved for the explicit pre-release workflow and remains limited to
 its approved Basic sample; an upstream investigation never authorizes a live
 call by itself.
 
-Then obtain independent Standards and Spec reviews before opening the PR. Give
-the Spec reviewer the old/new upstream SHAs, classification table, impact map,
-compatibility decision, and Issue acceptance criteria. Record unresolved locale
-or prose/spec conflicts in the Issue and in user-facing documentation where they
-affect reliable use.
+Then open a Draft PR and obtain independent Standards and Spec reviews on that
+PR. Give the Spec reviewer the old/new upstream SHAs, classification table,
+impact map, compatibility decision, exact PR base/head SHAs, and Issue
+acceptance criteria. Post both reports and any material-fix re-review on the PR.
+Record unresolved locale or prose/spec conflicts in the Issue and in user-facing
+documentation where they affect reliable use.
 
 After merge, update the current upstream pin only if the reviewed snapshot was
 actually accepted. Never advance a pin merely to make drift checks pass.

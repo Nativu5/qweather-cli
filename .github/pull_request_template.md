@@ -6,11 +6,15 @@
 
 Closes #
 
-## Pre-PR review evidence
+## Independent review evidence
 
-- Standards review (independent SubAgent):
-- Spec review (independent SubAgent):
+- Reviewed base SHA (full 40 characters):
+- Reviewed head SHA (full 40 characters):
+- Exact review diff command:
+- Standards review PR comment (independent SubAgent):
+- Spec review PR comment (independent SubAgent):
 - Material-fix re-review, if applicable:
+- [ ] The PR remained Draft until both axes passed for the current material diff
 
 ## Contract and documentation impact
 
