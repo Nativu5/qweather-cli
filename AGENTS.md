@@ -92,6 +92,8 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
   before handing off Go changes.
 - For npm Adapter changes, run its focused tests and an install/version smoke
   check when practical.
+- Follow `docs/agents/testing.md` for deterministic CI gates and the strictly
+  opt-in, quota-consuming release smoke boundary.
 
 ## Issue-driven workflow
 
@@ -146,6 +148,7 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
 - Domain-doc workflow: `docs/agents/domain.md`
 - Development SOP: `docs/agents/development-sop.md`
 - Upstream-change SOP: `docs/agents/upstream-change-sop.md`
+- Testing: `docs/agents/testing.md`
 - Architecture: `docs/design/architecture.md`
 - CLI contract: `docs/design/cli-contract.md`
 - Runtime and distribution: `docs/design/runtime-and-distribution.md`
