@@ -27,12 +27,12 @@ func TestCompileRequestCoversIssueSixCapabilitiesAndPolicies(t *testing.T) {
 		{
 			id: "geo.city.lookup", input: catalog.Input{Query: "Beijing", Country: "CN", Adm: "Beijing", Limit: 20},
 			language: "en", path: "/geo/v2/city/lookup",
-			query: url.Values{"location": {"Beijing"}, "range": {"CN"}, "adm": {"Beijing"}, "number": {"20"}, "lang": {"en"}},
+			query: url.Values{"location": {"Beijing"}, "range": {"cn"}, "adm": {"Beijing"}, "number": {"20"}, "lang": {"en"}},
 			mode:  catalog.CacheDisabled, boundary: catalog.BoundaryNone,
 		},
 		{
 			id: "geo.city.top", input: catalog.Input{Country: "CN", Limit: 5}, language: "zh", path: "/geo/v2/city/top",
-			query: url.Values{"range": {"CN"}, "number": {"5"}, "lang": {"zh"}},
+			query: url.Values{"range": {"cn"}, "number": {"5"}, "lang": {"zh"}},
 			mode:  catalog.CacheDisabled, boundary: catalog.BoundaryNone,
 		},
 		{
@@ -133,6 +133,31 @@ func TestCompileRequestCoversIssueSixCapabilitiesAndPolicies(t *testing.T) {
 			}
 			if capability.Cache.Mode != test.mode || capability.Cache.TTL != test.ttl || capability.Cache.Boundary != test.boundary {
 				t.Fatalf("cache policy = %#v", capability.Cache)
+			}
+		})
+	}
+}
+
+func TestCompileRequestNormalizesCountryFilter(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        string
+		input     catalog.Input
+		wantRange string
+	}{
+		{name: "lookup uppercase", id: "geo.city.lookup", input: catalog.Input{Query: "Beijing", Country: "CN"}, wantRange: "cn"},
+		{name: "lookup lowercase", id: "geo.city.lookup", input: catalog.Input{Query: "Beijing", Country: "cn"}, wantRange: "cn"},
+		{name: "top uppercase", id: "geo.city.top", input: catalog.Input{Country: "CN"}, wantRange: "cn"},
+		{name: "top lowercase", id: "geo.city.top", input: catalog.Input{Country: "cn"}, wantRange: "cn"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request, problem := CompileRequest(capability(t, test.id), RequestParameters{Input: test.input, Language: "auto"})
+			if problem != nil {
+				t.Fatal(problem)
+			}
+			if got := request.Query.Get("range"); got != test.wantRange {
+				t.Fatalf("range = %q, want %q", got, test.wantRange)
 			}
 		})
 	}

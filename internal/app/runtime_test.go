@@ -130,44 +130,48 @@ func TestRuntimeMapsConfigurationAndNetworkErrors(t *testing.T) {
 }
 
 func TestRuntimePerformsInvocationLocalGeoResolution(t *testing.T) {
-	doer := &scriptedDoer{responses: []qweather.Response{
-		{StatusCode: 200, Body: []byte(`{"code":"200","location":[{"id":"101010100","name":"Beijing","adm1":"Beijing","adm2":"Beijing","country":"China","lat":"39.90499","lon":"116.40529","tz":"Asia/Shanghai"}]}`)},
-		{StatusCode: 200, Body: []byte(`{"code":"200","now":{"temp":"20"}}`)},
-	}}
-	compiled := 0
-	runtime := New(
-		func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
-			return testEffective(t), config.Diagnostics{}, nil
-		},
-		func(config.Effective) (qweather.Doer, error) { return doer, nil },
-		func(capability catalog.Capability, parameters RequestParameters) (qweather.Request, *output.Problem) {
-			compiled++
-			if parameters.Resolved.ID != "101010100" || parameters.Resolved.TZ != "Asia/Shanghai" || parameters.Language != "en" {
-				t.Fatalf("parameters = %#v", parameters)
+	for _, country := range []string{"CN", "cn"} {
+		t.Run(country, func(t *testing.T) {
+			doer := &scriptedDoer{responses: []qweather.Response{
+				{StatusCode: 200, Body: []byte(`{"code":"200","location":[{"id":"101010100","name":"Beijing","adm1":"Beijing","adm2":"Beijing","country":"China","lat":"39.90499","lon":"116.40529","tz":"Asia/Shanghai"}]}`)},
+				{StatusCode: 200, Body: []byte(`{"code":"200","now":{"temp":"20"}}`)},
+			}}
+			compiled := 0
+			runtime := New(
+				func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+					return testEffective(t), config.Diagnostics{}, nil
+				},
+				func(config.Effective) (qweather.Doer, error) { return doer, nil },
+				func(capability catalog.Capability, parameters RequestParameters) (qweather.Request, *output.Problem) {
+					compiled++
+					if parameters.Resolved.ID != "101010100" || parameters.Resolved.TZ != "Asia/Shanghai" || parameters.Language != "en" {
+						t.Fatalf("parameters = %#v", parameters)
+					}
+					return qweather.Request{CapabilityID: capability.ID, Path: "/v7/weather/now", Query: url.Values{"location": {parameters.Resolved.ID}}}, nil
+				},
+			)
+			result, problem := runtime.Run(context.Background(), cli.Invocation{
+				Capability: capability(t, "weather.city.current"),
+				Input: catalog.Input{
+					Place: "Beijing", Country: country, Adm: "Beijing",
+				},
+				Common:  cli.CommonOptions{Timeout: time.Second},
+				Changed: map[string]bool{},
+			})
+			if problem != nil {
+				t.Fatal(problem)
 			}
-			return qweather.Request{CapabilityID: capability.ID, Path: "/v7/weather/now", Query: url.Values{"location": {parameters.Resolved.ID}}}, nil
-		},
-	)
-	result, problem := runtime.Run(context.Background(), cli.Invocation{
-		Capability: capability(t, "weather.city.current"),
-		Input: catalog.Input{
-			Place: "Beijing", Country: "CN", Adm: "Beijing",
-		},
-		Common:  cli.CommonOptions{Timeout: time.Second},
-		Changed: map[string]bool{},
-	})
-	if problem != nil {
-		t.Fatal(problem)
-	}
-	if compiled != 1 || len(doer.requests) != 2 {
-		t.Fatalf("compiled=%d requests=%#v", compiled, doer.requests)
-	}
-	lookup := doer.requests[0]
-	if lookup.Path != "/geo/v2/city/lookup" || lookup.Query.Get("location") != "Beijing" || lookup.Query.Get("range") != "CN" || lookup.Query.Get("adm") != "Beijing" || lookup.Query.Get("number") != "20" || lookup.Query.Get("lang") != "en" {
-		t.Fatalf("lookup = %#v", lookup)
-	}
-	if result.ResolvedPlace == nil || result.ResolvedPlace.ID != "101010100" || len(result.Operations) != 2 || result.Operations[0] != "geo.city.lookup" {
-		t.Fatalf("result = %#v", result)
+			if compiled != 1 || len(doer.requests) != 2 {
+				t.Fatalf("compiled=%d requests=%#v", compiled, doer.requests)
+			}
+			lookup := doer.requests[0]
+			if lookup.Path != "/geo/v2/city/lookup" || lookup.Query.Get("location") != "Beijing" || lookup.Query.Get("range") != "cn" || lookup.Query.Get("adm") != "Beijing" || lookup.Query.Get("number") != "20" || lookup.Query.Get("lang") != "en" {
+				t.Fatalf("lookup = %#v", lookup)
+			}
+			if result.ResolvedPlace == nil || result.ResolvedPlace.ID != "101010100" || len(result.Operations) != 2 || result.Operations[0] != "geo.city.lookup" {
+				t.Fatalf("result = %#v", result)
+			}
+		})
 	}
 }
 

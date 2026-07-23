@@ -225,8 +225,8 @@ func (r *Runtime) resolvePlace(ctx context.Context, client qweather.Doer, invoca
 		switch query.Spec.Kind {
 		case place.SpecName:
 			values.Set("location", query.Spec.Name)
-			if query.Spec.Country != "" {
-				values.Set("range", query.Spec.Country)
+			if country := providerCountry(query.Spec.Country); country != "" {
+				values.Set("range", country)
 			}
 			if query.Spec.Adm != "" {
 				values.Set("adm", query.Spec.Adm)
