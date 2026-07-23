@@ -22,10 +22,15 @@ For non-trivial work, follow the complete
 1. Read and claim one actionable Issue before implementation.
 2. Create one focused branch and keep the diff within that Issue.
 3. Run the required local checks.
-4. Before opening a PR, obtain independent Standards and Spec reviews from at
-   least two SubAgents and record their evidence on the Issue.
-5. Open the PR against its intended integration branch, wait for required CI,
-   and close the Issue only after its acceptance criteria are satisfied.
+4. Open a Draft PR against its intended integration branch.
+5. Obtain independent Standards and Spec reviews from at least two SubAgents and
+   post each report on the PR. Keep it Draft until both axes pass.
+6. Mark the PR Ready, wait for required CI, and close the Issue only after its
+   acceptance criteria are satisfied.
+
+Issues remain the source for requirements, scope, blockers, decisions, and
+closure. Code-review findings and re-review evidence belong on the PR whose diff
+they evaluate.
 
 Explicit upstream QWeather changes use the separate
 [upstream-change SOP](./upstream-change-sop.md) in addition to this lifecycle.
@@ -33,6 +38,9 @@ Explicit upstream QWeather changes use the separate
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.**
+
+**PRs as a code-review surface: yes.** Standards, Spec, and material-fix
+re-review reports belong on the Draft PR whose exact diff they evaluate.
 
 GitHub shares one number space across issues and pull requests. Resolve an
 ambiguous `#42` with `gh pr view 42`, then fall back to `gh issue view 42`.

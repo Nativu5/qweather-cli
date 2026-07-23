@@ -92,11 +92,26 @@ or build commands required by the affected surface. A live smoke test is never
 an implied local gate; run one only when the release process explicitly
 authorizes its credentials and quota.
 
-## 6. Obtain two independent pre-PR reviews
+## 6. Open a Draft PR
 
-Before creating the PR, delegate the complete branch diff to at least two
-independent SubAgents. Use separate review contexts and do not let either review
-stand in for the other:
+1. Commit the complete focused change and re-run the checks affected by the
+   final commit.
+2. Push the branch and open one Draft PR using the repository template. Link the
+   Issue with `Closes #<number>`.
+3. Record the PR URL, exact base commit SHA, and exact head commit SHA. Reviewers
+   must evaluate that fixed range, not a moving branch name alone.
+4. Target `main` for ordinary integration. Release work follows the dedicated
+   release policy and never converts a normal `main` merge into a publication.
+
+Keep the PR Draft while either review axis is missing, failing, or stale after a
+material change.
+
+## 7. Obtain two independent PR reviews
+
+Delegate the Draft PR's complete fixed-SHA diff to at least two independent
+SubAgents. Every review prompt identifies the PR URL/number, the exact base SHA,
+the exact head SHA, the diff command, and the applicable Issue. Use separate
+review contexts and do not let either review stand in for the other:
 
 - **Standards review:** compare the diff with `AGENTS.md`, repository design
   contracts, UNIX process discipline, security rules, test policy, and
@@ -105,26 +120,28 @@ stand in for the other:
   every acceptance criterion, non-goal, edge case, and expected user outcome.
 
 Each reviewer reports actionable findings with severity, file and line when
-possible, evidence, and a pass/fail conclusion. The implementer records both
-review results on the Issue before PR creation; a concise Issue comment may
-link to durable review artifacts when available.
+possible, evidence, and a PASS/FAIL conclusion. Post the Standards report and
+the Spec report as distinct comments or formal reviews on the Draft PR. When
+SubAgents do not have separate GitHub identities, the coordinator posts each
+report with its reviewer context and reviewed head SHA intact.
 
 Fix all accepted blocking findings and explain any rejected finding with
 evidence. Material fixes must be re-reviewed on the affected axis. A material
 fix changes behaviour, contract, security, workflow control flow, or substantial
-test logic; typo and formatting corrections do not require a full rerun.
+test logic; typo and formatting corrections do not require a full rerun. Record
+the re-review on the same PR against its new exact head SHA.
 
 The same Agent may coordinate the work but must not impersonate either
 independent reviewer. If two independent SubAgents are unavailable, stop before
-PR creation and record the review blocker on the Issue.
+marking the PR Ready and record the blocker on the PR and Issue.
 
-## 7. Open and land the PR
+## 8. Mark Ready and land the PR
 
-1. Re-run checks affected by review fixes.
-2. Push the branch and open one PR using the repository template. Link the Issue
-   with `Closes #<number>` and link both pre-PR review records.
-3. Target `main` for ordinary integration. Release work follows the dedicated
-   release policy and never converts a normal `main` merge into a publication.
+1. Re-run checks affected by review fixes and push the final head.
+2. Update the PR body with links to both passing review reports and any required
+   material-fix re-review.
+3. Mark the PR Ready only when both axes pass for the current material diff and
+   required local checks are current.
 4. Wait for required CI. Diagnose failures from evidence; do not bypass or
    weaken a gate to make the PR green.
 5. Review the final PR diff for accidental files, secrets, generated drift, and
@@ -141,8 +158,8 @@ A completed Issue should make these facts discoverable:
 
 - requirement and decision record;
 - branch and PR;
-- Standards review result;
-- Spec review result;
+- Standards review result on the PR;
+- Spec review result on the PR;
 - commands and results for deterministic gates;
 - explicit live-smoke status;
 - contract, documentation, and generation impact; and

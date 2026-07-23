@@ -105,8 +105,8 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
 - Use `gh` for issue operations and follow
   `docs/agents/issue-tracker.md`.
 - Follow `docs/agents/development-sop.md` for non-trivial implementation work,
-  including the required independent Standards and Spec reviews before opening
-  a pull request.
+  including the required independent Standards and Spec reviews on a Draft pull
+  request before it becomes Ready.
 - Use the canonical triage labels documented in
   `docs/agents/triage-labels.md`.
 - Claim an actionable issue before implementation when the workflow requires
