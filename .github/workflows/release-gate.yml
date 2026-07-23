@@ -1,0 +1,97 @@
+name: Release gate
+run-name: Release gate v${{ inputs.version }} from ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable SemVer without the v prefix, for example 1.2.3
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: validate release ref
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Require a matching stable release branch
+        id: release
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::version must be stable SemVer without a v prefix or leading zeros" >&2
+            exit 1
+          fi
+          expected_ref="refs/heads/release/v${VERSION}"
+          if [ "$GITHUB_REF" != "$expected_ref" ]; then
+            echo "::error::release gate requires ${expected_ref}; selected ${GITHUB_REF}" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  deterministic:
+    name: deterministic gates
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+
+  smoke:
+    name: approved live smoke
+    needs:
+      - validate
+      - deterministic
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: qweather-release-smoke
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build release-smoke binary
+        env:
+          CGO_ENABLED: "0"
+        run: go build -trimpath -o "$RUNNER_TEMP/qweather" ./cmd/qweather
+
+      - name: Run the three approved Basic calls
+        env:
+          QWEATHER_E2E_BINARY: ${{ runner.temp }}/qweather
+          QWEATHER_API_HOST: ${{ secrets.QWEATHER_API_HOST }}
+          QWEATHER_API_KEY: ${{ secrets.QWEATHER_API_KEY }}
+        run: go test -tags=e2e ./tests/e2e -run '^TestReleaseSmoke$' -count=1
+
+  release_ready:
+    name: release ready
+    needs:
+      - validate
+      - deterministic
+      - smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record the non-publishing gate result
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          {
+            echo "Release v${VERSION} passed deterministic and approved live gates."
+            echo "Validated source: ${GITHUB_SHA}"
+            echo "Artifact publication is not part of this workflow and remains owned by Issue #8."
+          } >> "$GITHUB_STEP_SUMMARY"
