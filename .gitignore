@@ -1,0 +1,44 @@
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+/config.toml
+/qweather.toml
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Python documentation tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Go build and test output
+/bin/
+/dist/
+/coverage.out
+*.coverprofile
+*.prof
+*.test
+
+# Node.js dependencies and local logs
+node_modules/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Maintainer-only documentation evidence
+.cache/
+docs/research/
