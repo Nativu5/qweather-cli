@@ -160,6 +160,15 @@ func TestInvalidTypedInputUsesProblemEnvelope(t *testing.T) {
 	}
 }
 
+func TestCacheClearRejectsUnknownOrDeprecatedCapability(t *testing.T) {
+	for _, capabilityID := range []string{"missing.capability", "legacy.alert.current"} {
+		exit, stdout, stderr := runCommand(t, &recordingRuntime{}, "cache", "clear", "--capability", capabilityID)
+		if exit != 2 || stdout != "" || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) {
+			t.Fatalf("capability=%q exit=%d stdout=%q stderr=%q", capabilityID, exit, stdout, stderr)
+		}
+	}
+}
+
 func TestNoSecretFlagsAreExposed(t *testing.T) {
 	root := newTestRoot(t, &recordingRuntime{})
 	var walk func(*cobra.Command)

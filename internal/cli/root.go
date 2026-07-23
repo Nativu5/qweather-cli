@@ -42,7 +42,7 @@ func NewRoot(registry *catalog.Registry, runtime Runtime, info buildinfo.Info) (
 	}
 	root.AddCommand(newCapabilityCommand(registry))
 	root.AddCommand(newConfigCommand(runtime, common))
-	root.AddCommand(newCacheCommand(runtime, common))
+	root.AddCommand(newCacheCommand(runtime, common, registry))
 	root.AddCommand(newVersionCommand(info))
 	return root, nil
 }

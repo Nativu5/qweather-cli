@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Nativu5/qweather-cli/internal/auth"
+	cachepkg "github.com/Nativu5/qweather-cli/internal/cache"
 	"github.com/Nativu5/qweather-cli/internal/catalog"
 	"github.com/Nativu5/qweather-cli/internal/cli"
 	"github.com/Nativu5/qweather-cli/internal/config"
@@ -271,5 +275,176 @@ func TestConfigCheckDoesNotCreateProviderClient(t *testing.T) {
 	check := result.(config.CheckResult)
 	if !check.Valid || check.Diagnostics.AuthSource != "test" {
 		t.Fatalf("check = %#v", check)
+	}
+}
+
+func TestRuntimeCacheHitRefreshAndNoCache(t *testing.T) {
+	now := time.Date(2026, 7, 23, 0, 0, 0, 0, time.UTC)
+	directory := filepath.Join(t.TempDir(), "cache")
+	effective := testEffective(t)
+	effective.Cache = config.CacheSettings{Enabled: true, Directory: directory}
+	doer := &scriptedDoer{responses: []qweather.Response{
+		{StatusCode: 200, Body: []byte(`{"code":"200","now":{"temp":"20"}}`)},
+		{StatusCode: 200, Body: []byte(`{"code":"200","now":{"temp":"21"}}`)},
+		{StatusCode: 200, Body: []byte(`{"code":"200","now":{"temp":"22"}}`)},
+	}}
+	runtime := NewWithCache(
+		func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+			return effective, config.Diagnostics{}, nil
+		},
+		func(config.Effective) (qweather.Doer, error) { return doer, nil },
+		func(effective config.Effective) (CacheStore, error) {
+			return cachepkg.NewStore(effective.Cache.Directory, effective.Profile, func() time.Time { return now })
+		},
+		func(capability catalog.Capability, parameters RequestParameters) (qweather.Request, *output.Problem) {
+			return qweather.Request{CapabilityID: capability.ID, Path: "/v7/weather/now", Query: url.Values{"location": {parameters.Resolved.ID}, "lang": {parameters.Language}}}, nil
+		},
+	)
+	runtime.now = func() time.Time { return now }
+	invocation := cli.Invocation{
+		Capability: capability(t, "weather.city.current"), Input: catalog.Input{PlaceID: "101010100"},
+		Common: cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+	}
+	first, problem := runtime.Run(context.Background(), invocation)
+	if problem != nil || first.Cache.Status != "miss" || first.Cache.StoredAt == "" || len(doer.requests) != 1 {
+		t.Fatalf("first=%#v problem=%v requests=%d", first, problem, len(doer.requests))
+	}
+	now = now.Add(time.Minute)
+	second, problem := runtime.Run(context.Background(), invocation)
+	if problem != nil || second.Cache.Status != "hit" || second.Cache.UpstreamRequested || second.Cache.AgeSeconds != 60 || len(doer.requests) != 1 || !strings.Contains(string(second.Data), `"20"`) {
+		t.Fatalf("second=%#v problem=%v requests=%d", second, problem, len(doer.requests))
+	}
+	invocation.Common.Refresh = true
+	refreshed, problem := runtime.Run(context.Background(), invocation)
+	if problem != nil || refreshed.Cache.Status != "miss" || !refreshed.Cache.UpstreamRequested || len(doer.requests) != 2 || !strings.Contains(string(refreshed.Data), `"21"`) {
+		t.Fatalf("refreshed=%#v problem=%v requests=%d", refreshed, problem, len(doer.requests))
+	}
+	invocation.Common.Refresh = false
+	invocation.Common.NoCache = true
+	bypassed, problem := runtime.Run(context.Background(), invocation)
+	if problem != nil || bypassed.Cache.Status != "disabled" || len(doer.requests) != 3 || !strings.Contains(string(bypassed.Data), `"22"`) {
+		t.Fatalf("bypassed=%#v problem=%v requests=%d", bypassed, problem, len(doer.requests))
+	}
+	invocation.Common.NoCache = false
+	afterBypass, problem := runtime.Run(context.Background(), invocation)
+	if problem != nil || afterBypass.Cache.Status != "hit" || len(doer.requests) != 3 || !strings.Contains(string(afterBypass.Data), `"21"`) {
+		t.Fatalf("afterBypass=%#v problem=%v requests=%d", afterBypass, problem, len(doer.requests))
+	}
+}
+
+func TestRuntimeNeverCachesGeoCapabilities(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "cache")
+	effective := testEffective(t)
+	effective.Cache = config.CacheSettings{Enabled: true, Sensitive: true, Directory: directory}
+	doer := &scriptedDoer{response: qweather.Response{StatusCode: 200, Body: []byte(`{"code":"200","topCityList":[]}`)}}
+	runtime := NewWithCache(
+		func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+			return effective, config.Diagnostics{}, nil
+		},
+		func(config.Effective) (qweather.Doer, error) { return doer, nil }, nil,
+		func(capability catalog.Capability, _ RequestParameters) (qweather.Request, *output.Problem) {
+			return qweather.Request{CapabilityID: capability.ID, Path: capability.Upstream.PathTemplate}, nil
+		},
+	)
+	invocation := cli.Invocation{Capability: capability(t, "geo.city.top"), Common: cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{}}
+	for range 2 {
+		result, problem := runtime.Run(context.Background(), invocation)
+		if problem != nil || result.Cache.Status != "disabled" {
+			t.Fatalf("result=%#v problem=%v", result, problem)
+		}
+	}
+	if len(doer.requests) != 2 {
+		t.Fatalf("Geo data request count = %d", len(doer.requests))
+	}
+	if _, err := os.Stat(directory); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Geo query created cache storage: %v", err)
+	}
+}
+
+func TestRuntimeRequiresSensitiveCacheOptInForAccount(t *testing.T) {
+	now := time.Date(2026, 7, 23, 0, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		name      string
+		sensitive bool
+		wantCalls int
+		wantLast  string
+	}{
+		{name: "default disabled", sensitive: false, wantCalls: 2, wantLast: "disabled"},
+		{name: "explicit opt-in", sensitive: true, wantCalls: 1, wantLast: "hit"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			effective := testEffective(t)
+			effective.Cache = config.CacheSettings{Enabled: true, Sensitive: test.sensitive, Directory: filepath.Join(t.TempDir(), "cache")}
+			doer := &scriptedDoer{response: qweather.Response{StatusCode: 200, Body: []byte(`{"balance":10}`)}}
+			runtime := NewWithCache(
+				func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+					return effective, config.Diagnostics{}, nil
+				},
+				func(config.Effective) (qweather.Doer, error) { return doer, nil },
+				func(effective config.Effective) (CacheStore, error) {
+					return cachepkg.NewStore(effective.Cache.Directory, effective.Profile, func() time.Time { return now })
+				},
+				func(capability catalog.Capability, _ RequestParameters) (qweather.Request, *output.Problem) {
+					return qweather.Request{CapabilityID: capability.ID, Path: capability.Upstream.PathTemplate}, nil
+				},
+			)
+			runtime.now = func() time.Time { return now }
+			invocation := cli.Invocation{
+				Capability: capability(t, "account.finance.summary"),
+				Input:      catalog.Input{AllowSensitive: "account"}, Common: cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+			}
+			var last *output.Result
+			for range 2 {
+				var problem *output.Problem
+				last, problem = runtime.Run(context.Background(), invocation)
+				if problem != nil {
+					t.Fatal(problem)
+				}
+			}
+			if len(doer.requests) != test.wantCalls || last.Cache.Status != test.wantLast {
+				t.Fatalf("requests=%d last=%#v", len(doer.requests), last)
+			}
+		})
+	}
+}
+
+func TestRuntimeNeverCachesProviderErrors(t *testing.T) {
+	now := time.Date(2026, 7, 23, 0, 0, 0, 0, time.UTC)
+	effective := testEffective(t)
+	effective.Cache = config.CacheSettings{Enabled: true, Directory: filepath.Join(t.TempDir(), "cache")}
+	doer := &scriptedDoer{
+		responses: []qweather.Response{
+			{},
+			{StatusCode: 200, Body: []byte(`{"code":"200","now":{"temp":"20"}}`)},
+		},
+		errors: []error{&qweather.ClientError{Kind: qweather.ErrorNetwork, Err: errors.New("temporary failure")}},
+	}
+	runtime := NewWithCache(
+		func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+			return effective, config.Diagnostics{}, nil
+		},
+		func(config.Effective) (qweather.Doer, error) { return doer, nil },
+		func(effective config.Effective) (CacheStore, error) {
+			return cachepkg.NewStore(effective.Cache.Directory, effective.Profile, func() time.Time { return now })
+		},
+		func(capability catalog.Capability, parameters RequestParameters) (qweather.Request, *output.Problem) {
+			return qweather.Request{CapabilityID: capability.ID, Path: "/v7/weather/now", Query: url.Values{"location": {parameters.Resolved.ID}}}, nil
+		},
+	)
+	runtime.now = func() time.Time { return now }
+	invocation := cli.Invocation{
+		Capability: capability(t, "weather.city.current"), Input: catalog.Input{PlaceID: "101010100"},
+		Common: cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+	}
+	if _, problem := runtime.Run(context.Background(), invocation); problem == nil || problem.ExitCode != 8 {
+		t.Fatalf("first problem = %#v", problem)
+	}
+	second, problem := runtime.Run(context.Background(), invocation)
+	if problem != nil || second.Cache.Status != "miss" || len(doer.requests) != 2 {
+		t.Fatalf("second=%#v problem=%v requests=%d", second, problem, len(doer.requests))
+	}
+	third, problem := runtime.Run(context.Background(), invocation)
+	if problem != nil || third.Cache.Status != "hit" || len(doer.requests) != 2 {
+		t.Fatalf("third=%#v problem=%v requests=%d", third, problem, len(doer.requests))
 	}
 }
