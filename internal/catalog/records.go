@@ -68,9 +68,9 @@ func records() []Capability {
 	langFlag := stringFlag("lang", "response language", false)
 	coordinateFlag := stringFlag("coordinate", "coordinate in geo:<lat>,<lon> form", true)
 	poiTypeFlag := stringFlag("poi-type", "POI kind", true, "scenic", "tide-station")
-	allowMarine := stringFlag("allow-product", "acknowledge a billed product", true, "marine")
-	allowSolar := stringFlag("allow-product", "acknowledge a billed product", true, "solar")
-	allowAccount := stringFlag("allow-sensitive-output", "acknowledge sensitive account output", true, "account")
+	allowMarine := stringFlag("allow-product", "acknowledge a billed product", false, "marine")
+	allowSolar := stringFlag("allow-product", "acknowledge a billed product", false, "solar")
+	allowAccount := stringFlag("allow-sensitive-output", "acknowledge sensitive account output", false, "account")
 
 	return []Capability{
 		current(

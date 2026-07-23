@@ -60,6 +60,13 @@ func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *Comm
 			if problem := validateInvocation(capability, *input, *common, changed); problem != nil {
 				return problem
 			}
+			if common.Debug {
+				_ = output.WriteJSON(command.ErrOrStderr(), map[string]any{
+					"schema":     "qweather.debug/v1",
+					"event":      "query.start",
+					"capability": capability.ID,
+				}, false)
+			}
 			result, problem := runtime.Run(command.Context(), Invocation{
 				Capability: capability,
 				Input:      *input,

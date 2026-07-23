@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/Nativu5/qweather-cli/internal/app"
 	"github.com/Nativu5/qweather-cli/internal/buildinfo"
 	"github.com/Nativu5/qweather-cli/internal/catalog"
 	"github.com/Nativu5/qweather-cli/internal/cli"
@@ -29,7 +30,7 @@ func run() int {
 		_ = output.RenderProblem(os.Stderr, problem, false)
 		return problem.ExitCode
 	}
-	root, err := cli.NewRoot(registry, cli.UnavailableRuntime{}, buildinfo.Current(hash))
+	root, err := cli.NewRoot(registry, app.NewDefault(), buildinfo.Current(hash))
 	if err != nil {
 		problem := output.NewProblem(10, "COMMAND_TREE_INVALID", "command tree cannot be constructed")
 		problem.Cause = err
