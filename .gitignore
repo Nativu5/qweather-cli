@@ -26,6 +26,8 @@ __pycache__/
 # Go build and test output
 /bin/
 /dist/
+/qweather
+/qweather.exe
 /coverage.out
 *.coverprofile
 *.prof
