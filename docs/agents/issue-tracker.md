@@ -14,6 +14,22 @@ Issues and PRDs for this repo live as GitHub issues in the private
 
 Infer the repository from `git remote -v`; `gh` does this automatically inside the repository.
 
+## Implementation lifecycle
+
+For non-trivial work, follow the complete
+[development SOP](./development-sop.md). In particular:
+
+1. Read and claim one actionable Issue before implementation.
+2. Create one focused branch and keep the diff within that Issue.
+3. Run the required local checks.
+4. Before opening a PR, obtain independent Standards and Spec reviews from at
+   least two SubAgents and record their evidence on the Issue.
+5. Open the PR against its intended integration branch, wait for required CI,
+   and close the Issue only after its acceptance criteria are satisfied.
+
+Explicit upstream QWeather changes use the separate
+[upstream-change SOP](./upstream-change-sop.md) in addition to this lifecycle.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.**
