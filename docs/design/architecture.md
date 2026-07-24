@@ -194,6 +194,7 @@ For volatile facts such as pricing, supported regions, alert types, and deprecat
 - [Resolve human place names safely inside the CLI](../adr/0003-resolve-place-names-inside-the-cli.md)
 - [Return a stable envelope around provider data](../adr/0004-return-a-stable-result-envelope.md)
 - [Persist capability-aware data caches but never Geo Data](../adr/0005-cache-data-but-not-geo-data.md)
+- [Limit live E2E coverage to capabilities with a free allowance](../adr/0006-limit-live-e2e-coverage-for-paid-only-capabilities.md)
 
 ## Primary QWeather references
 
