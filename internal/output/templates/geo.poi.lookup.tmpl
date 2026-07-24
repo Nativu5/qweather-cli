@@ -1,0 +1,17 @@
+{{- section "Points of interest" -}}
+{{- range $index := items "poi" -}}
+POI {{ inc $index }}:
+{{ requiredField "Name" (path "poi" $index "name") "" -}}
+{{- requiredField "ID" (path "poi" $index "id") "" -}}
+{{- field "Type" (path "poi" $index "type") "" -}}
+{{- field "Administrative area 2" (path "poi" $index "adm2") "" -}}
+{{- field "Administrative area 1" (path "poi" $index "adm1") "" -}}
+{{- field "Country" (path "poi" $index "country") "" -}}
+{{- field "Latitude" (path "poi" $index "lat") "" -}}
+{{- field "Longitude" (path "poi" $index "lon") "" -}}
+{{- field "Time zone" (path "poi" $index "tz") "" -}}
+{{- field "UTC offset" (path "poi" $index "utcOffset") "" -}}
+{{- field "Daylight saving time" (path "poi" $index "isDst") "" -}}
+{{- field "Rank" (path "poi" $index "rank") "" -}}
+{{- field "Web link" (path "poi" $index "fxLink") "" -}}
+{{- end -}}

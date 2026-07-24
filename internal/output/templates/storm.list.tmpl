@@ -1,0 +1,12 @@
+{{- section "Storm list" }}
+{{- requiredField "Provider code" "code" "" }}
+{{- field "Updated at" "updateTime" "" }}
+{{- field "Forecast link" "fxLink" "" }}
+{{- range $storm := items "storm" }}
+{{- section (printf "Storm %d" (inc $storm)) }}
+{{- requiredField "Name" (path "storm" $storm "name") "" }}
+{{- requiredField "ID" (path "storm" $storm "id") "" }}
+{{- field "Basin" (path "storm" $storm "basin") "" }}
+{{- field "Year" (path "storm" $storm "year") "" }}
+{{- field "Active" (path "storm" $storm "isActive") "" }}
+{{- end -}}

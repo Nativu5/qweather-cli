@@ -1,7 +1,6 @@
 package output
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +10,19 @@ const (
 	ResultSchema  = "qweather.result/v1"
 	ProblemSchema = "qweather.problem/v1"
 )
+
+// Mode selects the process presentation without changing request semantics.
+type Mode string
+
+const (
+	ModeText Mode = "text"
+	ModeJSON Mode = "json"
+	ModeBody Mode = "body"
+)
+
+func (m Mode) Valid() bool {
+	return m == ModeText || m == ModeJSON || m == ModeBody
+}
 
 type ResolvedPlace struct {
 	ID      string `json:"id,omitempty"`
@@ -52,6 +64,7 @@ type Result struct {
 	Attribution   []any           `json:"attribution"`
 	Data          json.RawMessage `json:"data"`
 	ProviderBody  []byte          `json:"-"`
+	Unit          string          `json:"-"`
 }
 
 type Problem struct {
@@ -77,50 +90,34 @@ func (p *Problem) Unwrap() error {
 	return p.Cause
 }
 
-func RenderResult(writer io.Writer, result *Result, bodyOnly, pretty bool) error {
-	if result == nil {
-		return fmt.Errorf("result is nil")
-	}
-	if bodyOnly {
-		body := result.ProviderBody
-		if pretty {
-			var formatted bytes.Buffer
-			if err := json.Indent(&formatted, body, "", "  "); err != nil {
-				return fmt.Errorf("format provider body: %w", err)
-			}
-			body = formatted.Bytes()
-		}
-		if _, err := writer.Write(body); err != nil {
-			return err
-		}
-		if len(body) == 0 || body[len(body)-1] != '\n' {
-			_, err := io.WriteString(writer, "\n")
-			return err
-		}
-		return nil
-	}
-	return writeJSON(writer, result, pretty)
+// WriteJSON emits one compact JSON value followed by a newline.
+func WriteJSON(writer io.Writer, value any) error {
+	encoder := json.NewEncoder(writer)
+	encoder.SetEscapeHTML(false)
+	return encoder.Encode(value)
 }
 
-func RenderProblem(writer io.Writer, problem *Problem, pretty bool) error {
+// RenderProblem writes a QWeather-owned problem using the selected mode. Body
+// mode deliberately shares Text presentation because provider error bodies are
+// never exposed.
+func RenderProblem(writer io.Writer, problem *Problem, mode Mode) error {
 	if problem == nil {
 		problem = NewProblem(10, "INTERNAL_ERROR", "missing problem details")
 	}
 	if problem.Schema == "" {
 		problem.Schema = ProblemSchema
 	}
-	return writeJSON(writer, problem, pretty)
-}
-
-func WriteJSON(writer io.Writer, value any, pretty bool) error {
-	return writeJSON(writer, value, pretty)
-}
-
-func writeJSON(writer io.Writer, value any, pretty bool) error {
-	encoder := json.NewEncoder(writer)
-	encoder.SetEscapeHTML(false)
-	if pretty {
-		encoder.SetIndent("", "  ")
+	if mode == ModeJSON {
+		return WriteJSON(writer, problem)
 	}
-	return encoder.Encode(value)
+	return writeTextProblem(writer, problem)
+}
+
+// RenderCobraError preserves Cobra's ordinary text diagnostic boundary.
+func RenderCobraError(writer io.Writer, err error) error {
+	if err == nil {
+		return nil
+	}
+	_, writeErr := fmt.Fprintf(writer, "Error: %v\n", err)
+	return writeErr
 }

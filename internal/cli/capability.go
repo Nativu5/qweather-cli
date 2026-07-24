@@ -11,28 +11,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newCapabilityCommand(registry *catalog.Registry) *cobra.Command {
+func newCapabilityCommand(registry *catalog.Registry, common *CommonOptions) *cobra.Command {
 	command := &cobra.Command{Use: "capability", Short: "Inspect the offline capability catalog"}
-	command.AddCommand(newCapabilityListCommand(registry))
-	command.AddCommand(newCapabilityShowCommand(registry))
+	command.AddCommand(newCapabilityListCommand(registry, common))
+	command.AddCommand(newCapabilityShowCommand(registry, common))
 	return command
 }
 
-func newCapabilityListCommand(registry *catalog.Registry) *cobra.Command {
-	var domain, billing, lifecycle, format string
+func newCapabilityListCommand(registry *catalog.Registry, common *CommonOptions) *cobra.Command {
+	var domain, billing, lifecycle string
 	command := &cobra.Command{
 		Use:   "list",
 		Short: "List capabilities without network access",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
+			if problem := validateLocalOutput(*common); problem != nil {
+				return problem
+			}
 			if lifecycle != "current" && lifecycle != "deprecated" && lifecycle != "all" {
 				return output.NewProblem(2, "INVALID_INVOCATION", "--lifecycle must be current, deprecated, or all")
 			}
 			if billing != "" && billing != "basic" && billing != "marine" && billing != "solar" {
 				return output.NewProblem(2, "INVALID_INVOCATION", "--billing-group must be basic, marine, or solar")
-			}
-			if format != "table" && format != "json" {
-				return output.NewProblem(2, "INVALID_INVOCATION", "--format must be table or json")
 			}
 			records := registry.All()
 			filtered := make([]catalog.Capability, 0, len(records))
@@ -49,8 +49,8 @@ func newCapabilityListCommand(registry *catalog.Registry) *cobra.Command {
 				filtered = append(filtered, record)
 			}
 			sort.Slice(filtered, func(i, j int) bool { return filtered[i].ID < filtered[j].ID })
-			if format == "json" {
-				return output.WriteJSON(command.OutOrStdout(), filtered, false)
+			if common.Output == string(output.ModeJSON) {
+				return renderLocalResult(command, filtered, *common)
 			}
 			writer := tabwriter.NewWriter(command.OutOrStdout(), 0, 4, 2, ' ', 0)
 			_, _ = fmt.Fprintln(writer, "ID\tCOMMAND\tBILLING\tLIFECYCLE")
@@ -61,32 +61,30 @@ func newCapabilityListCommand(registry *catalog.Registry) *cobra.Command {
 				}
 				_, _ = fmt.Fprintf(writer, "%s\t%s\t%s\t%s\n", record.ID, commandPath, record.BillingGroup, record.Lifecycle)
 			}
-			return writer.Flush()
+			return outputFailure(writer.Flush())
 		},
 	}
 	command.Flags().StringVar(&domain, "domain", "", "filter by capability domain")
 	command.Flags().StringVar(&billing, "billing-group", "", "filter by billing group")
 	command.Flags().StringVar(&lifecycle, "lifecycle", "current", "filter by lifecycle")
-	command.Flags().StringVar(&format, "format", "table", "output format: table or json")
 	return command
 }
 
-func newCapabilityShowCommand(registry *catalog.Registry) *cobra.Command {
-	var format string
+func newCapabilityShowCommand(registry *catalog.Registry, common *CommonOptions) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "show <capability-id>",
 		Short: "Show one capability without network access",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(command *cobra.Command, args []string) error {
-			if format != "text" && format != "json" {
-				return output.NewProblem(2, "INVALID_INVOCATION", "--format must be text or json")
+			if problem := validateLocalOutput(*common); problem != nil {
+				return problem
 			}
 			record, ok := registry.Find(args[0])
 			if !ok {
 				return output.NewProblem(2, "UNKNOWN_CAPABILITY", "unknown capability ID")
 			}
-			if format == "json" {
-				return output.WriteJSON(command.OutOrStdout(), record, false)
+			if common.Output == string(output.ModeJSON) {
+				return renderLocalResult(command, record, *common)
 			}
 			writer := tabwriter.NewWriter(command.OutOrStdout(), 0, 4, 2, ' ', 0)
 			fields := [][2]string{
@@ -106,10 +104,9 @@ func newCapabilityShowCommand(registry *catalog.Registry) *cobra.Command {
 			for _, field := range fields {
 				_, _ = fmt.Fprintf(writer, "%s:\t%s\n", field[0], field[1])
 			}
-			return writer.Flush()
+			return outputFailure(writer.Flush())
 		},
 	}
-	command.Flags().StringVar(&format, "format", "text", "output format: text or json")
 	return command
 }
 

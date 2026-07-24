@@ -32,13 +32,13 @@ func Classify(family catalog.ResponseFamily, response Response, capabilityID str
 	if problem != nil {
 		return Classified{}, problem
 	}
-	if family == catalog.ResponseLegacyV1 {
+	if family == catalog.ResponseCodeReferV1 {
 		code, ok := object["code"].(string)
 		if !ok || code == "" {
-			return Classified{}, protocolProblem(capabilityID, "legacy response does not contain a string code")
+			return Classified{}, protocolProblem(capabilityID, "code-refer response does not contain a string code")
 		}
 		if code != "200" && code != "204" {
-			return Classified{}, legacyCodeProblem(code, capabilityID)
+			return Classified{}, codeReferProblem(code, capabilityID)
 		}
 		outcome := "ok"
 		if code == "204" {
@@ -46,7 +46,7 @@ func Classify(family catalog.ResponseFamily, response Response, capabilityID str
 		}
 		return Classified{Outcome: outcome, Data: data, Attribution: extractAttribution(object)}, nil
 	}
-	if family != catalog.ResponseModernV1 && family != catalog.ResponseConsoleV1 {
+	if family != catalog.ResponseMetadataV1 && family != catalog.ResponseConsoleV1 {
 		return Classified{}, protocolProblem(capabilityID, "response family is not recognized")
 	}
 	return Classified{Outcome: "ok", Data: data, Attribution: extractAttribution(object)}, nil
@@ -133,7 +133,7 @@ func upstreamProblem(status int, body []byte, capabilityID string) *output.Probl
 	return problem
 }
 
-func legacyCodeProblem(code, capabilityID string) *output.Problem {
+func codeReferProblem(code, capabilityID string) *output.Problem {
 	status := 0
 	_, _ = fmt.Sscanf(code, "%d", &status)
 	return upstreamProblem(status, nil, capabilityID)

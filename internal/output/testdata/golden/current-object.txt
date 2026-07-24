@@ -1,0 +1,31 @@
+Capability: weather.city.current
+Cache:
+  Status: miss
+  Upstream requested: true
+Operations:
+  - weather.city.current
+Current weather:
+  Updated at: 2023-04-12T18:27+08:00
+  Web link: https://www.qweather.com/en/weather/beijing-101010100.html
+  Observed at: 2023-04-12T18:22+08:00
+  Condition: Fog
+  Temperature: 26 °C
+  Feels like: 28 °C
+  Icon: 501
+  Wind direction: S
+  Wind bearing: 180 °
+  Wind scale: 1
+  Wind speed: 5 km/h
+  Humidity: 74 %
+  Precipitation: 0.0 mm
+  Pressure: 1004 hPa
+  Visibility: 4 km
+  Cloud cover: 91 %
+  Dew point: 23 °C
+Additional fields:
+  code: 200
+Attribution:
+  [0]:
+    source: https://developer.qweather.com/attribution.html
+  [1]:
+    license: QWeather Developers License

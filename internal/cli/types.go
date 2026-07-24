@@ -13,7 +13,6 @@ type CommonOptions struct {
 	Profile    string
 	Timeout    time.Duration
 	Output     string
-	Pretty     bool
 	Refresh    bool
 	NoCache    bool
 	Debug      bool

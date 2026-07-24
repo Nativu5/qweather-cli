@@ -10,9 +10,9 @@ import (
 	"github.com/Nativu5/qweather-cli/internal/catalog"
 )
 
-func TestClassifyPreservesLegacyBodyAndAttribution(t *testing.T) {
+func TestClassifyPreservesCodeReferBodyAndAttribution(t *testing.T) {
 	body := []byte(`{"code":"200","now":{"temp":"20","futureField":true},"refer":{"sources":["QWeather"],"license":["license-url"]}}`)
-	classified, problem := Classify(catalog.ResponseLegacyV1, Response{StatusCode: 200, Body: body}, "weather.city.current")
+	classified, problem := Classify(catalog.ResponseCodeReferV1, Response{StatusCode: 200, Body: body}, "weather.city.current")
 	if problem != nil {
 		t.Fatal(problem)
 	}
@@ -28,16 +28,16 @@ func TestClassifyPreservesLegacyBodyAndAttribution(t *testing.T) {
 	}
 }
 
-func TestClassifyNoDataAndModernAttribution(t *testing.T) {
-	legacy, problem := Classify(catalog.ResponseLegacyV1, Response{StatusCode: 200, Body: []byte(`{"code":"204"}`)}, "weather.history")
-	if problem != nil || legacy.Outcome != "no_data" {
-		t.Fatalf("legacy=%#v problem=%v", legacy, problem)
+func TestClassifyNoDataAndMetadataAttribution(t *testing.T) {
+	codeRefer, problem := Classify(catalog.ResponseCodeReferV1, Response{StatusCode: 200, Body: []byte(`{"code":"204"}`)}, "weather.history")
+	if problem != nil || codeRefer.Outcome != "no_data" {
+		t.Fatalf("codeRefer=%#v problem=%v", codeRefer, problem)
 	}
-	modern, problem := Classify(catalog.ResponseModernV1, Response{StatusCode: 200, Body: []byte(`{"metadata":{"attributions":[{"name":"QWeather"}]},"alerts":[]}`)}, "alert.current")
-	if problem != nil || modern.Outcome != "ok" || len(modern.Attribution) != 1 {
-		t.Fatalf("modern=%#v problem=%v", modern, problem)
+	metadata, problem := Classify(catalog.ResponseMetadataV1, Response{StatusCode: 200, Body: []byte(`{"metadata":{"attributions":[{"name":"QWeather"}]},"alerts":[]}`)}, "alert.current")
+	if problem != nil || metadata.Outcome != "ok" || len(metadata.Attribution) != 1 {
+		t.Fatalf("metadata=%#v problem=%v", metadata, problem)
 	}
-	empty, problem := Classify(catalog.ResponseModernV1, Response{StatusCode: 204}, "air.current")
+	empty, problem := Classify(catalog.ResponseMetadataV1, Response{StatusCode: 204}, "air.current")
 	if problem != nil || empty.Outcome != "no_data" || string(empty.Data) != `{}` {
 		t.Fatalf("empty=%#v problem=%v", empty, problem)
 	}
@@ -52,10 +52,10 @@ func TestClassifyMapsProviderFailures(t *testing.T) {
 		code      string
 		retryable bool
 	}{
-		{"legacy rejection", catalog.ResponseLegacyV1, Response{StatusCode: 200, Body: []byte(`{"code":"403"}`)}, 6, "UPSTREAM_REJECTED", false},
-		{"rate limit", catalog.ResponseModernV1, Response{StatusCode: 429, Body: []byte(`{"status":429}`)}, 7, "RATE_LIMITED", true},
-		{"server failure", catalog.ResponseModernV1, Response{StatusCode: 503, Body: []byte(`{"status":503}`)}, 8, "UPSTREAM_UNAVAILABLE", true},
-		{"malformed", catalog.ResponseModernV1, Response{StatusCode: 200, Body: []byte(`not-json`)}, 9, "UPSTREAM_PROTOCOL_ERROR", false},
+		{"code-refer rejection", catalog.ResponseCodeReferV1, Response{StatusCode: 200, Body: []byte(`{"code":"403"}`)}, 6, "UPSTREAM_REJECTED", false},
+		{"rate limit", catalog.ResponseMetadataV1, Response{StatusCode: 429, Body: []byte(`{"status":429}`)}, 7, "RATE_LIMITED", true},
+		{"server failure", catalog.ResponseMetadataV1, Response{StatusCode: 503, Body: []byte(`{"status":503}`)}, 8, "UPSTREAM_UNAVAILABLE", true},
+		{"malformed", catalog.ResponseMetadataV1, Response{StatusCode: 200, Body: []byte(`not-json`)}, 9, "UPSTREAM_PROTOCOL_ERROR", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

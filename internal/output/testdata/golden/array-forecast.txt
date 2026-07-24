@@ -1,0 +1,100 @@
+Capability: weather.city.forecast.daily
+Cache:
+  Status: miss
+  Upstream requested: true
+Operations:
+  - weather.city.forecast.daily
+Daily forecast:
+  Updated at: 2023-04-12T18:32+08:00
+  Web link: https://www.qweather.com/en/weather/beijing-101010100.html
+Day 1:
+  Date: 2023-04-12
+  Day condition: Thundershower
+  Night condition: Thundershower
+  Minimum temperature: 20 °C
+  Maximum temperature: 27 °C
+  Day icon: 302
+  Night icon: 302
+  Sunrise: 04:46
+  Sunset: 19:45
+  Moonrise: 04:11
+  Moonset: 20:28
+  Moon phase: New Moon
+  Moon phase icon: 800
+  Day wind direction: S
+  Day wind bearing: 180 °
+  Day wind scale: 1-3
+  Day wind speed: 3 km/h
+  Night wind direction: S
+  Night wind bearing: 180 °
+  Night wind scale: 1-3
+  Night wind speed: 3 km/h
+  Humidity: 80 %
+  Precipitation: 4.1 mm
+  Pressure: 1003 hPa
+  Visibility: 24 km
+  Cloud cover: 55 %
+  UV index: 8
+Day 2:
+  Date: 2023-04-13
+  Day condition: Thundershower
+  Night condition: Thundershower
+  Minimum temperature: 20 °C
+  Maximum temperature: 27 °C
+  Day icon: 302
+  Night icon: 302
+  Sunrise: 04:46
+  Sunset: 19:45
+  Moonrise: 05:17
+  Moonset: 21:24
+  Moon phase: Waxing crescent
+  Moon phase icon: 801
+  Day wind direction: SW
+  Day wind bearing: 225 °
+  Day wind scale: 1-3
+  Day wind speed: 3 km/h
+  Night wind direction: NE
+  Night wind bearing: 45 °
+  Night wind scale: 1-3
+  Night wind speed: 3 km/h
+  Humidity: 78 %
+  Precipitation: 1.3 mm
+  Pressure: 1002 hPa
+  Visibility: 24 km
+  Cloud cover: 65 %
+  UV index: 3
+Day 3:
+  Date: 2023-04-14
+  Day condition: Cloudy
+  Night condition: Cloudy
+  Minimum temperature: 22 °C
+  Maximum temperature: 30 °C
+  Day icon: 101
+  Night icon: 151
+  Sunrise: 04:46
+  Sunset: 19:46
+  Moonrise: 06:31
+  Moonset: 22:09
+  Moon phase: Waxing crescent
+  Moon phase icon: 801
+  Day wind direction: SE
+  Day wind bearing: 135 °
+  Day wind scale: 1-3
+  Day wind speed: 3 km/h
+  Night wind direction: SE
+  Night wind bearing: 135 °
+  Night wind scale: 1-3
+  Night wind speed: 3 km/h
+  Humidity: 63 %
+  Precipitation: 0.0 mm
+  Pressure: 1000 hPa
+  Visibility: 25 km
+  Cloud cover: 1 %
+  UV index: 11
+Additional fields:
+  code: 200
+Attribution:
+  [0]:
+    source: https://developer.qweather.com/attribution.html
+  [1]:
+    license: QWeather Developers License

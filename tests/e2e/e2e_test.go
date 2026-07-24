@@ -59,7 +59,7 @@ func TestReleaseSmoke(t *testing.T) {
 		{
 			name:           "Geo city lookup",
 			capability:     "geo.city.lookup",
-			responseFamily: "legacy-v1",
+			responseFamily: "code-refer-v1",
 			args: []string{
 				"geo", "city", "lookup", "--place-id", "101010100", "--limit", "1",
 				"--lang", "en", "--output", "json", "--no-cache",
@@ -68,7 +68,7 @@ func TestReleaseSmoke(t *testing.T) {
 		{
 			name:           "current city weather",
 			capability:     "weather.city.current",
-			responseFamily: "legacy-v1",
+			responseFamily: "code-refer-v1",
 			args: []string{
 				"weather", "city", "current", "--place-id", "101010100",
 				"--lang", "en", "--output", "json", "--no-cache",
@@ -77,7 +77,7 @@ func TestReleaseSmoke(t *testing.T) {
 		{
 			name:           "current air quality",
 			capability:     "air.current",
-			responseFamily: "modern-v1",
+			responseFamily: "metadata-v1",
 			args: []string{
 				"air", "current", "--coordinate", "geo:39.90,116.41",
 				"--lang", "en", "--output", "json", "--no-cache",

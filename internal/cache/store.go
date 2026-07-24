@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	recordSchema   = "qweather.cache-record/v2"
+	recordSchema   = "qweather.cache-record/v3"
 	statusSchema   = "qweather.cache-status/v1"
 	clearSchema    = "qweather.cache-clear/v1"
 	maxRecordBytes = (qweather.DefaultMaxBodyBytes * 4 / 3) + (128 << 10)
@@ -329,7 +329,7 @@ func validateRecord(record Record, capabilityID string) error {
 	if record.HTTPStatus < 200 || record.HTTPStatus >= 300 {
 		return errors.New("cache record HTTP status is invalid")
 	}
-	if record.ResponseFamily != catalog.ResponseLegacyV1 && record.ResponseFamily != catalog.ResponseModernV1 && record.ResponseFamily != catalog.ResponseConsoleV1 {
+	if record.ResponseFamily != catalog.ResponseCodeReferV1 && record.ResponseFamily != catalog.ResponseMetadataV1 && record.ResponseFamily != catalog.ResponseConsoleV1 {
 		return errors.New("cache record response family is invalid")
 	}
 	if len(record.ProviderBody) > 0 && !json.Valid(record.ProviderBody) {

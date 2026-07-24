@@ -1,0 +1,17 @@
+{{- section "Locations" -}}
+{{- range $index := items "location" -}}
+Location {{ inc $index }}:
+{{ requiredField "Name" (path "location" $index "name") "" -}}
+{{- requiredField "ID" (path "location" $index "id") "" -}}
+{{- field "Type" (path "location" $index "type") "" -}}
+{{- field "Administrative area 2" (path "location" $index "adm2") "" -}}
+{{- field "Administrative area 1" (path "location" $index "adm1") "" -}}
+{{- field "Country" (path "location" $index "country") "" -}}
+{{- field "Latitude" (path "location" $index "lat") "" -}}
+{{- field "Longitude" (path "location" $index "lon") "" -}}
+{{- field "Time zone" (path "location" $index "tz") "" -}}
+{{- field "UTC offset" (path "location" $index "utcOffset") "" -}}
+{{- field "Daylight saving time" (path "location" $index "isDst") "" -}}
+{{- field "Rank" (path "location" $index "rank") "" -}}
+{{- field "Web link" (path "location" $index "fxLink") "" -}}
+{{- end -}}

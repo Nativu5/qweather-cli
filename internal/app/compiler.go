@@ -211,7 +211,7 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 		if problem != nil {
 			return qweather.Request{}, problem
 		}
-		request.Path = modernCoordinatePath("/weatheralert/v1/current", coordinate)
+		request.Path = latLonCoordinatePath("/weatheralert/v1/current", coordinate)
 		if input.LocalTime {
 			query.Set("localTime", "true")
 		}
@@ -227,7 +227,7 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 			"air.forecast.daily":  "/airquality/v1/daily",
 			"air.forecast.hourly": "/airquality/v1/hourly",
 		}[capability.ID]
-		request.Path = modernCoordinatePath(base, coordinate)
+		request.Path = latLonCoordinatePath(base, coordinate)
 		setLanguage(query, parameters.Language)
 
 	case "air.station.current":
@@ -308,7 +308,7 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 		if parameters.Changed["azimuth-deg"] && (input.AzimuthDegrees < 0 || input.AzimuthDegrees > 359) {
 			return qweather.Request{}, invalidRequest(capability.ID, "--azimuth-deg is outside the supported range")
 		}
-		request.Path = modernCoordinatePath("/solarradiation/v1/forecast", coordinate)
+		request.Path = latLonCoordinatePath("/solarradiation/v1/forecast", coordinate)
 		query.Set("hours", strconv.Itoa(hours))
 		query.Set("interval", strconv.Itoa(interval))
 		if len(extras) > 0 {
@@ -436,7 +436,7 @@ func requireCoordinate(resolved place.Resolved, capabilityID string) (place.Coor
 	return coordinate, nil
 }
 
-func modernCoordinatePath(base string, coordinate place.Coordinate) string {
+func latLonCoordinatePath(base string, coordinate place.Coordinate) string {
 	return base + "/" + coordinate.LatText + "/" + coordinate.LonText
 }
 

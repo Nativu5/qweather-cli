@@ -1,0 +1,8 @@
+{{- section "Precipitation summary" }}
+{{- requiredField "Summary" "summary" "" }}
+{{- range $index := items "minutely" }}
+{{- section (printf "Interval %d" (inc $index)) }}
+{{- requiredField "Forecast time" (path "minutely" $index "fxTime") "" }}
+{{- field "Precipitation" (path "minutely" $index "precip") (unit "precipitation") }}
+{{- field "Type" (path "minutely" $index "type") "" }}
+{{- end -}}

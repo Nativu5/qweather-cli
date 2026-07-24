@@ -1,0 +1,31 @@
+{{- range $index := items "forecasts" }}
+{{- section (printf "Solar radiation forecast %d" (inc $index)) }}
+{{- requiredField "Forecast time" (path "forecasts" $index "forecastTime") "" }}
+{{- requiredField "Solar azimuth" (path "forecasts" $index "solarAngle.azimuth") (unit "angle") }}
+{{- requiredField "Solar elevation" (path "forecasts" $index "solarAngle.elevation") (unit "angle") }}
+{{- requiredField "Direct normal irradiance" (path "forecasts" $index "dni.value") "" }}
+{{- field "Direct normal irradiance unit" (path "forecasts" $index "dni.unit") "" }}
+{{- requiredField "Diffuse horizontal irradiance" (path "forecasts" $index "dhi.value") "" }}
+{{- field "Diffuse horizontal irradiance unit" (path "forecasts" $index "dhi.unit") "" }}
+{{- requiredField "Global horizontal irradiance" (path "forecasts" $index "ghi.value") "" }}
+{{- field "Global horizontal irradiance unit" (path "forecasts" $index "ghi.unit") "" }}
+{{- if optionalObject (path "forecasts" $index "weather") }}
+{{- section (printf "Solar radiation forecast %d / weather" (inc $index)) }}
+{{- field "Temperature" (path "forecasts" $index "weather.temperature.value") "" }}
+{{- field "Temperature unit" (path "forecasts" $index "weather.temperature.unit") "" }}
+{{- field "Wind speed" (path "forecasts" $index "weather.windSpeed.value") "" }}
+{{- field "Wind speed unit" (path "forecasts" $index "weather.windSpeed.unit") "" }}
+{{- field "Relative humidity" (path "forecasts" $index "weather.humidity") (unit "percent") }}
+{{- end }}
+{{- if optionalObject (path "forecasts" $index "poa") }}
+{{- section (printf "Solar radiation forecast %d / plane of array" (inc $index)) }}
+{{- field "Global irradiance" (path "forecasts" $index "poa.global.value") "" }}
+{{- field "Global irradiance unit" (path "forecasts" $index "poa.global.unit") "" }}
+{{- field "Direct irradiance" (path "forecasts" $index "poa.direct.value") "" }}
+{{- field "Direct irradiance unit" (path "forecasts" $index "poa.direct.unit") "" }}
+{{- field "Diffuse irradiance" (path "forecasts" $index "poa.diffuse.value") "" }}
+{{- field "Diffuse irradiance unit" (path "forecasts" $index "poa.diffuse.unit") "" }}
+{{- field "Reflected irradiance" (path "forecasts" $index "poa.reflected.value") "" }}
+{{- field "Reflected irradiance unit" (path "forecasts" $index "poa.reflected.unit") "" }}
+{{- end }}
+{{- end -}}

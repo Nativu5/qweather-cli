@@ -1,0 +1,26 @@
+{{- section "Daily history" }}
+{{- requiredField "Date" "weatherDaily.date" "" }}
+{{- field "Sunrise" "weatherDaily.sunrise" "" }}
+{{- field "Sunset" "weatherDaily.sunset" "" }}
+{{- field "Moonrise" "weatherDaily.moonrise" "" }}
+{{- field "Moonset" "weatherDaily.moonset" "" }}
+{{- field "Moon phase" "weatherDaily.moonPhase" "" }}
+{{- field "Maximum temperature" "weatherDaily.tempMax" (unit "temperature") }}
+{{- field "Minimum temperature" "weatherDaily.tempMin" (unit "temperature") }}
+{{- field "Humidity" "weatherDaily.humidity" (unit "percent") }}
+{{- field "Precipitation" "weatherDaily.precip" (unit "precipitation") }}
+{{- field "Pressure" "weatherDaily.pressure" (unit "pressure") }}
+{{- range $index := items "weatherHourly" }}
+{{- section (printf "Historical hour %d" (inc $index)) }}
+{{- requiredField "Time" (path "weatherHourly" $index "time") "" }}
+{{- field "Condition" (path "weatherHourly" $index "text") "" }}
+{{- field "Temperature" (path "weatherHourly" $index "temp") (unit "temperature") }}
+{{- field "Precipitation" (path "weatherHourly" $index "precip") (unit "precipitation") }}
+{{- field "Humidity" (path "weatherHourly" $index "humidity") (unit "percent") }}
+{{- field "Pressure" (path "weatherHourly" $index "pressure") (unit "pressure") }}
+{{- field "Wind direction" (path "weatherHourly" $index "windDir") "" }}
+{{- field "Wind azimuth" (path "weatherHourly" $index "wind360") (unit "angle") }}
+{{- field "Wind scale" (path "weatherHourly" $index "windScale") "" }}
+{{- field "Wind speed" (path "weatherHourly" $index "windSpeed") (unit "speed") }}
+{{- field "Icon" (path "weatherHourly" $index "icon") "" }}
+{{- end -}}

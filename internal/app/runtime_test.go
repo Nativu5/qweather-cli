@@ -290,16 +290,16 @@ func TestRuntimeExecutesIssueSevenResponseFamiliesWithAcknowledgement(t *testing
 		attribution int
 	}{
 		{
-			name: "marine legacy", id: "storm.track",
+			name: "marine code-refer", id: "storm.track",
 			input: catalog.Input{StormID: "NP_2024", AllowProduct: "marine"},
 			body:  `{"code":"200","isActive":"1","futureField":{"kept":true},"refer":{"sources":["QWeather"]}}`,
-			path:  "/v7/tropical/storm-track", family: "legacy-v1", attribution: 1,
+			path:  "/v7/tropical/storm-track", family: "code-refer-v1", attribution: 1,
 		},
 		{
-			name: "solar modern", id: "solar.radiation.forecast",
+			name: "solar metadata", id: "solar.radiation.forecast",
 			input: catalog.Input{Coordinate: "geo:39.9,116.4", AllowProduct: "solar"},
 			body:  `{"metadata":{"attributions":[{"name":"QWeather"}]},"forecasts":[],"futureField":{"kept":true}}`,
-			path:  "/solarradiation/v1/forecast/39.9/116.4", family: "modern-v1", attribution: 1,
+			path:  "/solarradiation/v1/forecast/39.9/116.4", family: "metadata-v1", attribution: 1,
 		},
 		{
 			name: "account console", id: "account.finance.summary",
@@ -586,7 +586,7 @@ func TestRuntimeNeverCachesProviderErrors(t *testing.T) {
 	}
 }
 
-func TestDefaultCompilerExecutesModernResponseFamily(t *testing.T) {
+func TestDefaultCompilerExecutesMetadataResponseFamily(t *testing.T) {
 	effective := testEffective(t)
 	effective.Cache.Enabled = false
 	doer := &scriptedDoer{response: qweather.Response{
@@ -610,8 +610,29 @@ func TestDefaultCompilerExecutesModernResponseFamily(t *testing.T) {
 	if len(doer.requests) != 1 || doer.requests[0].Path != "/airquality/v1/current/39.9/116.4" || doer.requests[0].Query.Get("lang") != "en" {
 		t.Fatalf("requests = %#v", doer.requests)
 	}
-	if result.Upstream.ResponseFamily != "modern-v1" || len(result.Attribution) != 1 || !strings.Contains(string(result.Data), `"futureField"`) {
+	if result.Upstream.ResponseFamily != "metadata-v1" || len(result.Attribution) != 1 || !strings.Contains(string(result.Data), `"futureField"`) {
 		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestProviderResponseUnitMatchesCapabilityContract(t *testing.T) {
+	tests := []struct {
+		capabilityID string
+		effective    string
+		want         string
+	}{
+		{capabilityID: "weather.grid.current", effective: "imperial", want: "imperial"},
+		{capabilityID: "weather.history", effective: "metric", want: "metric"},
+		{capabilityID: "weather.city.current", effective: "imperial", want: "metric"},
+		{capabilityID: "weather.precipitation.minutely", effective: "imperial", want: "metric"},
+		{capabilityID: "storm.track", effective: "imperial", want: ""},
+	}
+	for _, test := range tests {
+		t.Run(test.capabilityID, func(t *testing.T) {
+			if got := providerResponseUnit(capability(t, test.capabilityID), test.effective); got != test.want {
+				t.Fatalf("providerResponseUnit() = %q, want %q", got, test.want)
+			}
+		})
 	}
 }
 

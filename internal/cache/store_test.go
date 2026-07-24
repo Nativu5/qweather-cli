@@ -85,8 +85,8 @@ func TestNewRecordNamesAndStoresPolicyMaximumTTL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record.Schema != "qweather.cache-record/v2" {
-		t.Fatalf("Schema = %q, want qweather.cache-record/v2", record.Schema)
+	if record.Schema != "qweather.cache-record/v3" {
+		t.Fatalf("Schema = %q, want qweather.cache-record/v3", record.Schema)
 	}
 	if record.PolicyMaxTTLSeconds != int64(time.Hour/time.Second) {
 		t.Fatalf("PolicyMaxTTLSeconds = %d, want %d", record.PolicyMaxTTLSeconds, int64(time.Hour/time.Second))
@@ -125,6 +125,28 @@ func TestStoreExpiresAndRemovesCorruptRecords(t *testing.T) {
 	}
 	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("corrupt record still exists: %v", err)
+	}
+}
+
+func TestStoreInvalidatesPrivateDevelopmentV2Records(t *testing.T) {
+	store, key, record, _ := cacheFixture(t)
+	if err := store.Put(context.Background(), key, record); err != nil {
+		t.Fatal(err)
+	}
+	path := mustEntryPath(t, store, key)
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(string(contents), "qweather.cache-record/v3", "qweather.cache-record/v2", 1))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, hit, err := store.Get(context.Background(), key); err != nil || hit {
+		t.Fatalf("v2 Get() hit=%v err=%v", hit, err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("v2 record still exists: %v", err)
 	}
 }
 

@@ -1,0 +1,15 @@
+{{- section "Tide forecast" }}
+{{- requiredField "Provider code" "code" "" }}
+{{- field "Updated at" "updateTime" "" }}
+{{- field "Forecast link" "fxLink" "" }}
+{{- range $index := items "tideTable" }}
+{{- section (printf "Tide event %d" (inc $index)) }}
+{{- requiredField "Forecast time" (path "tideTable" $index "fxTime") "" }}
+{{- requiredField "Height" (path "tideTable" $index "height") "m" }}
+{{- requiredField "Type" (path "tideTable" $index "type") "" }}
+{{- end }}
+{{- range $index := items "tideHourly" }}
+{{- section (printf "Hourly tide %d" (inc $index)) }}
+{{- requiredField "Forecast time" (path "tideHourly" $index "fxTime") "" }}
+{{- requiredField "Height" (path "tideHourly" $index "height") "m" }}
+{{- end -}}

@@ -1,0 +1,16 @@
+{{- range $index := items "hourly" }}
+{{- section (printf "Forecast hour %d" (inc $index)) }}
+{{- requiredField "Forecast time" (path "hourly" $index "fxTime") "" }}
+{{- field "Condition" (path "hourly" $index "text") "" }}
+{{- field "Temperature" (path "hourly" $index "temp") (unit "temperature") }}
+{{- field "Dew point" (path "hourly" $index "dew") (unit "temperature") }}
+{{- field "Humidity" (path "hourly" $index "humidity") (unit "percent") }}
+{{- field "Precipitation" (path "hourly" $index "precip") (unit "precipitation") }}
+{{- field "Pressure" (path "hourly" $index "pressure") (unit "pressure") }}
+{{- field "Cloud cover" (path "hourly" $index "cloud") (unit "percent") }}
+{{- field "Wind direction" (path "hourly" $index "windDir") "" }}
+{{- field "Wind azimuth" (path "hourly" $index "wind360") (unit "angle") }}
+{{- field "Wind scale" (path "hourly" $index "windScale") "" }}
+{{- field "Wind speed" (path "hourly" $index "windSpeed") (unit "speed") }}
+{{- field "Icon" (path "hourly" $index "icon") "" }}
+{{- end -}}

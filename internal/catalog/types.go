@@ -42,9 +42,9 @@ const (
 type ResponseFamily string
 
 const (
-	ResponseLegacyV1  ResponseFamily = "legacy-v1"
-	ResponseModernV1  ResponseFamily = "modern-v1"
-	ResponseConsoleV1 ResponseFamily = "console-v1"
+	ResponseCodeReferV1 ResponseFamily = "code-refer-v1"
+	ResponseMetadataV1  ResponseFamily = "metadata-v1"
+	ResponseConsoleV1   ResponseFamily = "console-v1"
 )
 
 type CacheMode string

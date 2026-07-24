@@ -1,0 +1,18 @@
+{{- section "Request statistics" }}
+{{- requiredField "As of" "asOf" "" }}
+{{- range $api := items "success" }}
+{{- section (printf "Successful API %d" (inc $api)) }}
+{{- requiredField "API" (path "success" $api "api") "" }}
+{{- range $hour := items (path "success" $api "hours") }}
+{{- section (printf "Successful API %d / hour %d" (inc $api) (inc $hour)) }}
+{{- requiredField "Requests" (path "success" $api "hours" $hour) "" }}
+{{- end }}
+{{- end -}}
+{{- range $api := items "errors" }}
+{{- section (printf "Error API %d" (inc $api)) }}
+{{- requiredField "API" (path "errors" $api "api") "" }}
+{{- range $hour := items (path "errors" $api "hours") }}
+{{- section (printf "Error API %d / hour %d" (inc $api) (inc $hour)) }}
+{{- requiredField "Requests" (path "errors" $api "hours" $hour) "" }}
+{{- end }}
+{{- end -}}

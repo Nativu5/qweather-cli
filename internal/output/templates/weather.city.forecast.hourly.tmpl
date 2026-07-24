@@ -1,0 +1,21 @@
+{{- section "Hourly forecast" -}}
+{{- field "Updated at" "updateTime" "" -}}
+{{- field "Web link" "fxLink" "" -}}
+{{- range $index := items "hourly" -}}
+Hour {{ inc $index }}:
+{{ requiredField "Forecast time" (path "hourly" $index "fxTime") "" -}}
+{{- requiredField "Condition" (path "hourly" $index "text") "" -}}
+{{- requiredField "Temperature" (path "hourly" $index "temp") (unit "temperature") -}}
+{{- field "Icon" (path "hourly" $index "icon") "" -}}
+{{- field "Wind direction" (path "hourly" $index "windDir") "" -}}
+{{- field "Wind bearing" (path "hourly" $index "wind360") (unit "angle") -}}
+{{- field "Wind scale" (path "hourly" $index "windScale") "" -}}
+{{- field "Wind speed" (path "hourly" $index "windSpeed") (unit "speed") -}}
+{{- field "Humidity" (path "hourly" $index "humidity") (unit "percent") -}}
+{{- field "Precipitation probability" (path "hourly" $index "pop") (unit "percent") -}}
+{{- field "Precipitation" (path "hourly" $index "precip") (unit "precipitation") -}}
+{{- field "Pressure" (path "hourly" $index "pressure") (unit "pressure") -}}
+{{- field "Cloud cover" (path "hourly" $index "cloud") (unit "percent") -}}
+{{- field "Dew point" (path "hourly" $index "dew") (unit "temperature") -}}
+{{- field "UV index" (path "hourly" $index "uvIndex") "" -}}
+{{- end -}}
