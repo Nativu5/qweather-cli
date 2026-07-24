@@ -40,9 +40,13 @@ func testOptions(t *testing.T, configPath string, environment map[string]string)
 }
 
 func writeConfig(t *testing.T, contents string) string {
+	return writeConfigMode(t, contents, 0o600)
+}
+
+func writeConfigMode(t *testing.T, contents string, mode os.FileMode) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(contents), mode); err != nil {
 		t.Fatal(err)
 	}
 	return path
@@ -123,6 +127,167 @@ stale = false
 	}
 	if strings.Contains(string(encoded), "do-not-print") {
 		t.Fatal("serialized configuration leaked API key")
+	}
+}
+
+func TestLoadSelectsAPIKeySource(t *testing.T) {
+	tests := []struct {
+		name        string
+		fields      string
+		environment map[string]string
+		wantKey     string
+		wantSource  string
+		wantError   string
+	}{
+		{
+			name:       "inline only",
+			fields:     `api_key = " inline-key "`,
+			wantKey:    "inline-key",
+			wantSource: "profile.api_key",
+		},
+		{
+			name: "custom environment overrides inline",
+			fields: `api_key = "inline-key"
+api_key_env = "CUSTOM_API_KEY"`,
+			environment: map[string]string{"CUSTOM_API_KEY": "environment-key"},
+			wantKey:     "environment-key",
+			wantSource:  "CUSTOM_API_KEY",
+		},
+		{
+			name:       "custom environment absence falls back to inline",
+			fields:     "api_key = \"inline-key\"\napi_key_env = \"CUSTOM_API_KEY\"",
+			wantKey:    "inline-key",
+			wantSource: "profile.api_key",
+		},
+		{
+			name:        "default environment overrides inline",
+			fields:      `api_key = "inline-key"`,
+			environment: map[string]string{"QWEATHER_API_KEY": "default-environment-key"},
+			wantKey:     "default-environment-key",
+			wantSource:  "QWEATHER_API_KEY",
+		},
+		{
+			name:        "environment only remains supported",
+			fields:      `api_key_env = "CUSTOM_API_KEY"`,
+			environment: map[string]string{"CUSTOM_API_KEY": "environment-key"},
+			wantKey:     "environment-key",
+			wantSource:  "CUSTOM_API_KEY",
+		},
+		{
+			name:        "explicit empty environment does not fall back",
+			fields:      "api_key = \"inline-key\"\napi_key_env = \"CUSTOM_API_KEY\"",
+			environment: map[string]string{"CUSTOM_API_KEY": ""},
+			wantError:   "referenced API key environment variable CUSTOM_API_KEY is empty",
+		},
+		{
+			name:      "missing sources",
+			fields:    `api_key = "   "`,
+			wantError: "API key is not configured",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			path := writeConfig(t, `
+[profiles.default]
+api_host = "example.qweatherapi.com"
+auth = "api_key"
+`+test.fields+"\n")
+			effective, diagnostics, err := Load(context.Background(), testOptions(t, path, test.environment))
+			if test.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), test.wantError) {
+					t.Fatalf("Load() error = %v", err)
+				}
+				if strings.Contains(err.Error(), "inline-key") || strings.Contains(err.Error(), "environment-key") {
+					t.Fatal("Load() error leaked an API key")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			header, err := effective.Credentials.Header(time.Time{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if header.Value != test.wantKey || diagnostics.AuthSource != test.wantSource || !diagnostics.SecretPresent {
+				t.Fatalf("header source or secret presence did not match expectations")
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInlineAPIKeyInJWTProfile(t *testing.T) {
+	keyPath := writePrivateKey(t, 0o600)
+	path := writeConfig(t, `
+[profiles.default]
+api_host = "example.qweatherapi.com"
+auth = "jwt"
+project_id = "project"
+credential_id = "credential"
+private_key_file = "`+keyPath+`"
+api_key = "inline-key"
+`)
+	_, _, err := Load(context.Background(), testOptions(t, path, nil))
+	if err == nil || !strings.Contains(err.Error(), "JWT profile must not configure api_key or api_key_env") {
+		t.Fatalf("Load() error = %v", err)
+	}
+}
+
+func TestLoadProtectsInlineAPIKeyConfigurationPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not expose Unix permission bits")
+	}
+	tests := []struct {
+		name      string
+		fields    string
+		mode      os.FileMode
+		wantError bool
+	}{
+		{name: "inline key in private file", fields: `api_key = "inline-key"`, mode: 0o600},
+		{name: "inline key in group-readable file", fields: `api_key = "inline-key"`, mode: 0o640, wantError: true},
+		{name: "inline key in other-readable file", fields: `api_key = "inline-key"`, mode: 0o604, wantError: true},
+		{name: "environment reference in public file", fields: `api_key_env = "TEST_API_KEY"`, mode: 0o644},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			path := writeConfigMode(t, `
+[profiles.default]
+api_host = "example.qweatherapi.com"
+auth = "api_key"
+`+test.fields+"\n", test.mode)
+			_, _, err := Load(context.Background(), testOptions(t, path, map[string]string{"TEST_API_KEY": "environment-key"}))
+			if test.wantError {
+				if err == nil || !strings.Contains(err.Error(), "configuration file permissions") {
+					t.Fatalf("Load() error = %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsLoosePermissionsWhenUnselectedProfileHasInlineAPIKey(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not expose Unix permission bits")
+	}
+	path := writeConfigMode(t, `
+[profiles.default]
+api_host = "example.qweatherapi.com"
+auth = "api_key"
+api_key_env = "TEST_API_KEY"
+
+[profiles.unselected]
+api_host = "example.qweatherapi.com"
+auth = "api_key"
+api_key = "inline-key"
+`, 0o644)
+	_, _, err := Load(context.Background(), testOptions(t, path, map[string]string{"TEST_API_KEY": "environment-key"}))
+	if err == nil || !strings.Contains(err.Error(), "configuration file permissions") {
+		t.Fatalf("Load() error = %v", err)
 	}
 }
 

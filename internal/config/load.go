@@ -93,6 +93,7 @@ func Load(ctx context.Context, options Options) (Effective, Diagnostics, error) 
 	privateKeyFile := strings.TrimSpace(profile.PrivateKeyFile)
 	jwtTTLText := strings.TrimSpace(profile.JWTTTL)
 	authMode := strings.TrimSpace(profile.Auth)
+	apiKeyInline := strings.TrimSpace(profile.APIKey)
 	apiKeyEnv := strings.TrimSpace(profile.APIKeyEnv)
 
 	stringOverrides := []struct {
@@ -153,20 +154,17 @@ func Load(ctx context.Context, options Options) (Effective, Diagnostics, error) 
 	if externalJWTPresent && strings.TrimSpace(externalJWT) == "" {
 		return Effective{}, diagnostics, errors.New("QWEATHER_JWT is set but empty")
 	}
-	if apiKey, present := options.LookupEnv("QWEATHER_API_KEY"); present && strings.TrimSpace(apiKey) == "" {
-		return Effective{}, diagnostics, errors.New("QWEATHER_API_KEY is set but empty")
-	}
 	if authMode == "" {
 		if externalJWTPresent {
 			authMode = "jwt"
-		} else if _, present := options.LookupEnv("QWEATHER_API_KEY"); present {
+		} else if _, present := options.LookupEnv("QWEATHER_API_KEY"); present || apiKeyInline != "" {
 			authMode = "api_key"
 		}
 	}
 	switch authMode {
 	case "jwt":
-		if apiKeyEnv != "" {
-			return Effective{}, diagnostics, errors.New("JWT profile must not configure api_key_env")
+		if apiKeyInline != "" || apiKeyEnv != "" {
+			return Effective{}, diagnostics, errors.New("JWT profile must not configure api_key or api_key_env")
 		}
 		if externalJWTPresent {
 			effective.Credentials, err = auth.NewExternalJWT(externalJWT)
@@ -194,22 +192,13 @@ func Load(ctx context.Context, options Options) (Effective, Diagnostics, error) 
 		if projectID != "" || credentialID != "" || privateKeyFile != "" {
 			return Effective{}, diagnostics, errors.New("api_key profile must not configure JWT identity or private key fields")
 		}
-		if apiKeyEnv == "" {
-			apiKeyEnv = "QWEATHER_API_KEY"
-		}
-		if !environmentNamePattern.MatchString(apiKeyEnv) {
-			return Effective{}, diagnostics, errors.New("api_key_env contains unsupported characters")
-		}
-		apiKey, present := options.LookupEnv(apiKeyEnv)
-		if !present {
-			return Effective{}, diagnostics, fmt.Errorf("referenced API key environment variable %s is not set", apiKeyEnv)
-		}
-		if strings.TrimSpace(apiKey) == "" {
-			return Effective{}, diagnostics, fmt.Errorf("referenced API key environment variable %s is empty", apiKeyEnv)
+		apiKey, apiKeySource, selectErr := selectAPIKey(options.LookupEnv, apiKeyInline, apiKeyEnv)
+		if selectErr != nil {
+			return Effective{}, diagnostics, selectErr
 		}
 		effective.Credentials, err = auth.NewAPIKey(apiKey)
 		effective.AuthMethod = auth.MethodAPIKey
-		diagnostics.AuthSource = apiKeyEnv
+		diagnostics.AuthSource = apiKeySource
 		diagnostics.SecretPresent = true
 	default:
 		return Effective{}, diagnostics, errors.New("auth must be jwt or api_key")
@@ -291,7 +280,54 @@ func readConfiguration(options Options, path, source string) (fileConfig, bool, 
 	if configuration.Profiles == nil {
 		configuration.Profiles = map[string]profileFile{}
 	}
+	if hasInlineAPIKey(configuration) {
+		if err := validateSecretConfigurationFile(options, path); err != nil {
+			return fileConfig{}, false, err
+		}
+	}
 	return configuration, true, nil
+}
+
+func selectAPIKey(lookup func(string) (string, bool), inline, environmentName string) (string, string, error) {
+	if environmentName == "" {
+		environmentName = "QWEATHER_API_KEY"
+	}
+	if !environmentNamePattern.MatchString(environmentName) {
+		return "", "", errors.New("api_key_env contains unsupported characters")
+	}
+	if value, present := lookup(environmentName); present {
+		if strings.TrimSpace(value) == "" {
+			return "", "", fmt.Errorf("referenced API key environment variable %s is empty", environmentName)
+		}
+		return value, environmentName, nil
+	}
+	if inline != "" {
+		return inline, "profile.api_key", nil
+	}
+	return "", "", fmt.Errorf("API key is not configured: referenced environment variable %s is not set and profile.api_key is empty", environmentName)
+}
+
+func hasInlineAPIKey(configuration fileConfig) bool {
+	for _, profile := range configuration.Profiles {
+		if strings.TrimSpace(profile.APIKey) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func validateSecretConfigurationFile(options Options, path string) error {
+	info, err := options.Stat(path)
+	if err != nil {
+		return fmt.Errorf("inspect configuration file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return errors.New("configuration file containing an inline API key is not a regular file")
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
+		return errors.New("configuration file permissions must not allow group or other access when it contains an inline API key")
+	}
+	return nil
 }
 
 func defaultCacheDirectory(options Options) (string, error) {
