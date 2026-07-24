@@ -18,6 +18,12 @@ go test -tags=e2e ./tests/e2e -run '^$'
 git diff --check
 ```
 
+For convenience, `make check` runs the same deterministic sequence and writes
+its build artifact to the ignored `bin/` directory. Use `make test` for the
+normal non-live Go suite, `make build` for `bin/qweather`, and `make help` for
+the small target list. The explicit commands above remain the canonical gate
+definition and CI keeps them as individually visible steps.
+
 The tagged command compiles the E2E package with a regular expression that
 matches no tests. It validates build compatibility without reading live-test
 configuration or making a provider request.
