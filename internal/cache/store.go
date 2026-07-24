@@ -82,16 +82,17 @@ func NewStore(root, profile string, now func() time.Time) (*Store, error) {
 }
 
 func NewRecord(capability catalog.Capability, outcome string, response qweather.Response, storedAt, expiresAt time.Time) (Record, error) {
+	hardTTL := maximumTTL(capability.Cache)
 	record := Record{
 		Schema: recordSchema, Capability: capability.ID, Outcome: outcome,
-		StoredAt: storedAt.UTC(), ExpiresAt: expiresAt.UTC(), TTLSeconds: int64(capability.Cache.TTL / time.Second),
+		StoredAt: storedAt.UTC(), ExpiresAt: expiresAt.UTC(), TTLSeconds: int64(hardTTL / time.Second),
 		HTTPStatus: response.StatusCode, ResponseFamily: capability.Upstream.ResponseFamily,
 		ProviderBody: append([]byte(nil), response.Body...),
 	}
 	if err := validateRecord(record, capability.ID); err != nil {
 		return Record{}, err
 	}
-	if expiresAt.After(storedAt.Add(capability.Cache.TTL)) {
+	if expiresAt.After(storedAt.Add(hardTTL)) {
 		return Record{}, errors.New("cache record exceeds its hard TTL")
 	}
 	return record, nil

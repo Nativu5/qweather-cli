@@ -168,7 +168,8 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 	}
 	if cacheEnabled {
 		storedAt := r.now().UTC()
-		expiresAt, expirationErr := cachepkg.Expiration(storedAt, invocation.Capability.Cache, resolved.TZ)
+		responsePolicy := cachepkg.PolicyForResponse(invocation.Capability, classified.Outcome, classified.Data)
+		expiresAt, expirationErr := cachepkg.Expiration(storedAt, responsePolicy, resolved.TZ)
 		if expirationErr != nil {
 			return nil, cacheProblem(invocation.Capability.ID, expirationErr)
 		}

@@ -85,7 +85,7 @@ func BuildKey(capability catalog.Capability, material Material) (Key, error) {
 	if capability.RequestRevision == 0 {
 		return Key{}, errors.New("request revision must be positive")
 	}
-	if capability.Cache.TTL <= 0 {
+	if maximumTTL(capability.Cache) <= 0 {
 		return Key{}, errors.New("cache policy TTL must be positive")
 	}
 	if material.Request.CapabilityID != "" && material.Request.CapabilityID != capability.ID {
@@ -117,7 +117,7 @@ func BuildKey(capability catalog.Capability, material Material) (Key, error) {
 	}
 	return Key{
 		capabilityID: capability.ID, profile: material.Profile,
-		ttl: capability.Cache.TTL, family: capability.Upstream.ResponseFamily,
+		ttl: maximumTTL(capability.Cache), family: capability.Upstream.ResponseFamily,
 		digest: sha256.Sum256(encoded),
 	}, nil
 }

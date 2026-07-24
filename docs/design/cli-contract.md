@@ -195,7 +195,7 @@ The command requires `--allow-product marine` before any network I/O.
 | --- | --- | --- | --- |
 | `solar forecast` | `solar.radiation.forecast` | coordinate target | [`GET /solarradiation/v1/forecast/{latitude}/{longitude}`](https://dev.qweather.com/docs/api/solar-radiation/solar-radiation-forecast/) |
 
-Optional flags include `--hours 1..60`, `--interval-min 15|30|60`, repeated `--include weather|poa`, `--tilt-deg 0..90`, `--azimuth-deg 0..359`, and `--local-time`. Including `poa` requires both tilt and azimuth. The command requires `--allow-product solar` before any network I/O.
+Optional flags include `--hours 1..60`, `--interval-min 15|30|60`, repeated `--include weather|poa`, integer `--tilt-deg 0..90`, integer `--azimuth-deg 0..359`, and `--local-time`. Hours default to 24 and the interval defaults to 60 minutes. Including `poa` requires both tilt and azimuth. The command requires `--allow-product solar` before any network I/O.
 
 ### Astronomy — 3
 

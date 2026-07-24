@@ -185,6 +185,57 @@ func TestSemanticInputValidationPrecedesRuntime(t *testing.T) {
 	}
 }
 
+func TestIssueSevenTypedValidationPrecedesRuntime(t *testing.T) {
+	tests := [][]string{
+		{"storm", "list", "--year", "2017", "--allow-product", "marine"},
+		{"storm", "track", "--storm-id", "", "--allow-product", "marine"},
+		{"marine", "tide", "--tide-station-id", "P66981", "--date", "2026-02-30", "--allow-product", "marine"},
+		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--hours", "61", "--allow-product", "solar"},
+		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--interval-min", "45", "--allow-product", "solar"},
+		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--include", "poa", "--allow-product", "solar"},
+		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--tilt-deg", "30.5", "--allow-product", "solar"},
+		{"astronomy", "position", "--coordinate", "geo:39.9,116.4", "--at", "not-a-time", "--altitude-m", "43"},
+		{"astronomy", "position", "--coordinate", "geo:39.9,116.4", "--at", "2026-07-25T12:30:00+08:00", "--altitude-m", "NaN"},
+		{"account", "usage", "--project-id", "project_123", "--credential-id", "cred_abc", "--allow-sensitive-output", "account"},
+	}
+	for _, args := range tests {
+		runtime := &recordingRuntime{}
+		exit, stdout, stderr := runCommand(t, runtime, args...)
+		if exit != 2 || stdout != "" || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) || len(runtime.invocations) != 0 {
+			t.Fatalf("args=%v exit=%d stdout=%q stderr=%q invocations=%d", args, exit, stdout, stderr, len(runtime.invocations))
+		}
+	}
+}
+
+func TestIssueSevenTypedFlagsReachRuntime(t *testing.T) {
+	runtime := &recordingRuntime{}
+	exit, _, stderr := runCommand(t, runtime,
+		"solar", "forecast", "--coordinate", "geo:39.9,116.4",
+		"--hours", "12", "--interval-min", "15", "--include", "weather,poa",
+		"--tilt-deg", "30", "--azimuth-deg", "180", "--local-time", "--allow-product", "solar",
+	)
+	if exit != 0 || stderr != "" || len(runtime.invocations) != 1 {
+		t.Fatalf("exit=%d stderr=%q invocations=%d", exit, stderr, len(runtime.invocations))
+	}
+	invocation := runtime.invocations[0]
+	if invocation.Capability.ID != "solar.radiation.forecast" || invocation.Input.Hours != 12 || invocation.Input.IntervalMinutes != 15 || invocation.Input.TiltDegrees != 30 || invocation.Input.AzimuthDegrees != 180 || !invocation.Input.LocalTime || invocation.Input.AllowProduct != "solar" {
+		t.Fatalf("invocation = %#v", invocation)
+	}
+	if len(invocation.Input.Includes) != 2 || invocation.Input.Includes[0] != "weather" || invocation.Input.Includes[1] != "poa" {
+		t.Fatalf("includes = %#v", invocation.Input.Includes)
+	}
+}
+
+func TestSolarHelpShowsProviderDefaults(t *testing.T) {
+	exit, stdout, stderr := runCommand(t, &recordingRuntime{}, "solar", "forecast", "--help")
+	if exit != 0 || stderr != "" {
+		t.Fatalf("exit=%d stderr=%q", exit, stderr)
+	}
+	if !strings.Contains(stdout, "--hours int") || !strings.Contains(stdout, "(default 24)") || !strings.Contains(stdout, "--interval-min int") || !strings.Contains(stdout, "(default 60)") {
+		t.Fatalf("help = %q", stdout)
+	}
+}
+
 func TestCacheClearRejectsUnknownOrDeprecatedCapability(t *testing.T) {
 	for _, capabilityID := range []string{"missing.capability", "legacy.alert.current"} {
 		exit, stdout, stderr := runCommand(t, &recordingRuntime{}, "cache", "clear", "--capability", capabilityID)

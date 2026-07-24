@@ -71,6 +71,10 @@ func records() []Capability {
 	allowMarine := stringFlag("allow-product", "acknowledge a billed product", false, "marine")
 	allowSolar := stringFlag("allow-product", "acknowledge a billed product", false, "solar")
 	allowAccount := stringFlag("allow-sensitive-output", "acknowledge sensitive account output", false, "account")
+	solarHours := rangedIntFlag("hours", "forecast length in hours", false, 1, 60)
+	solarHours.Default = "24"
+	solarInterval := intFlag("interval-min", "forecast interval in minutes", false, 15, 30, 60)
+	solarInterval.Default = "60"
 
 	return []Capability{
 		current(
@@ -239,11 +243,11 @@ func records() []Capability {
 			"solar.radiation.forecast", "solar forecast", "solar", "Get solar-radiation forecast",
 			"https://dev.qweather.com/docs/api/solar-radiation/solar-radiation-forecast/", TargetCoordinate,
 			appendFlags(placeFlags(false, false),
-				rangedIntFlag("hours", "forecast length in hours", false, 1, 60),
-				intFlag("interval-min", "forecast interval in minutes", false, 15, 30, 60),
+				solarHours,
+				solarInterval,
 				stringSliceFlag("include", "optional dataset; repeatable", "weather", "poa"),
-				floatFlag("tilt-deg", "panel tilt in degrees", false, 0, 90),
-				floatFlag("azimuth-deg", "panel azimuth in degrees", false, 0, 359),
+				rangedIntFlag("tilt-deg", "panel tilt in degrees", false, 0, 90),
+				rangedIntFlag("azimuth-deg", "panel azimuth in degrees", false, 0, 359),
 				boolFlag("local-time", "return local timestamps"), allowSolar,
 			),
 			upstream("/solarradiation/v1/forecast/{latitude}/{longitude}", ResponseModernV1),
