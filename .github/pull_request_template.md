@@ -1,6 +1,8 @@
 ## Summary
 
 -
+- [ ] The PR title uses Conventional Commits syntax and accurately describes the
+      complete squash diff (GitHub uses it as the `main` commit subject)
 
 ## Issue
 
