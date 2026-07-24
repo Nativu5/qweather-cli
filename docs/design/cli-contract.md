@@ -175,7 +175,7 @@ All four commands preserve provider Attribution and do not collapse multiple AQI
 
 | CLI path | Capability ID | Required typed input | Upstream |
 | --- | --- | --- | --- |
-| `storm list` | `storm.list` | `--year` | [`GET /v7/tropical/storm-list`](https://dev.qweather.com/docs/api/tropical-cyclone/storm-list/) |
+| `storm list` | `storm.list` | `--year` (current or previous UTC calendar year) | [`GET /v7/tropical/storm-list`](https://dev.qweather.com/docs/api/tropical-cyclone/storm-list/) |
 | `storm track` | `storm.track` | `--storm-id` | [`GET /v7/tropical/storm-track`](https://dev.qweather.com/docs/api/tropical-cyclone/storm-track/) |
 | `storm forecast` | `storm.forecast` | `--storm-id` | [`GET /v7/tropical/storm-forecast`](https://dev.qweather.com/docs/api/tropical-cyclone/storm-forecast/) |
 
@@ -185,7 +185,7 @@ All storm commands require `--allow-product marine` before any network I/O. The 
 
 | CLI path | Capability ID | Required typed input | Upstream |
 | --- | --- | --- | --- |
-| `marine tide` | `marine.tide` | `--tide-station-id`; `--date YYYY-MM-DD` | [`GET /v7/ocean/tide`](https://dev.qweather.com/docs/api/ocean/tide/) |
+| `marine tide` | `marine.tide` | `--tide-station-id`; `--date YYYY-MM-DD` from UTC today through `+9` days | [`GET /v7/ocean/tide`](https://dev.qweather.com/docs/api/ocean/tide/) |
 
 The command requires `--allow-product marine` before any network I/O.
 
@@ -201,8 +201,8 @@ Optional flags include `--hours 1..60`, `--interval-min 15|30|60`, repeated `--i
 
 | CLI path | Capability ID | Required typed input | Upstream |
 | --- | --- | --- | --- |
-| `astronomy sun` | `astronomy.sun.events` | Place Spec; `--date YYYY-MM-DD` | [`GET /v7/astronomy/sun`](https://dev.qweather.com/docs/api/astronomy/sunrise-sunset/) |
-| `astronomy moon` | `astronomy.moon.events` | Place Spec; `--date YYYY-MM-DD` | [`GET /v7/astronomy/moon`](https://dev.qweather.com/docs/api/astronomy/moon-and-moon-phase/) |
+| `astronomy sun` | `astronomy.sun.events` | Place Spec; `--date YYYY-MM-DD` from UTC today through `+59` days | [`GET /v7/astronomy/sun`](https://dev.qweather.com/docs/api/astronomy/sunrise-sunset/) |
+| `astronomy moon` | `astronomy.moon.events` | Place Spec; `--date YYYY-MM-DD` from UTC today through `+59` days | [`GET /v7/astronomy/moon`](https://dev.qweather.com/docs/api/astronomy/moon-and-moon-phase/) |
 | `astronomy position` | `astronomy.solar.position` | coordinate target; `--at RFC3339`; `--altitude-m` | [`GET /v7/astronomy/solar-elevation-angle`](https://dev.qweather.com/docs/api/astronomy/solar-elevation-angle/) |
 
 The position command converts one RFC3339 timestamp into the provider's coupled date, time, and timezone parameters.

@@ -33,6 +33,7 @@ type RequestParameters struct {
 	Language string
 	Unit     string
 	Resolved place.Resolved
+	Now      time.Time
 }
 
 type RequestCompiler func(catalog.Capability, RequestParameters) (qweather.Request, *output.Problem)
@@ -110,6 +111,7 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 	request, problem := r.compile(invocation.Capability, RequestParameters{
 		Input: invocation.Input, Changed: invocation.Changed,
 		Language: effective.Language, Unit: effective.Unit, Resolved: resolved,
+		Now: r.now().UTC(),
 	})
 	if problem != nil {
 		return nil, problem

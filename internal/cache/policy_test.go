@@ -67,6 +67,7 @@ func TestPolicyForResponseSelectsStormActiveAndInactiveTTL(t *testing.T) {
 		{name: "inactive track", id: "storm.track", outcome: "ok", body: `{"isActive":"0"}`, want: time.Hour},
 		{name: "forecast present", id: "storm.forecast", outcome: "ok", body: `{"forecast":[{}]}`, want: 20 * time.Minute},
 		{name: "forecast empty", id: "storm.forecast", outcome: "ok", body: `{"forecast":[]}`, want: time.Hour},
+		{name: "inactive forecast is null", id: "storm.forecast", outcome: "ok", body: `{"code":"200","forecast":null}`, want: time.Hour},
 		{name: "storm no data", id: "storm.forecast", outcome: "no_data", body: `{}`, want: time.Hour},
 	}
 	for _, test := range tests {

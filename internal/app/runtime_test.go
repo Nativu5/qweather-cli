@@ -66,6 +66,7 @@ func capability(t *testing.T, id string) catalog.Capability {
 }
 
 func TestRuntimeBuildsStableResultFromScriptedProvider(t *testing.T) {
+	now := time.Date(2026, 7, 24, 3, 30, 0, 0, time.UTC)
 	doer := &scriptedDoer{response: qweather.Response{
 		StatusCode: 200,
 		Body:       []byte(`{"code":"200","now":{"temp":"20","unknown":true},"refer":{"sources":["QWeather"]}}`),
@@ -76,9 +77,13 @@ func TestRuntimeBuildsStableResultFromScriptedProvider(t *testing.T) {
 		},
 		func(config.Effective) (qweather.Doer, error) { return doer, nil },
 		func(capability catalog.Capability, parameters RequestParameters) (qweather.Request, *output.Problem) {
+			if !parameters.Now.Equal(now) {
+				t.Fatalf("request clock = %s, want %s", parameters.Now, now)
+			}
 			return qweather.Request{CapabilityID: capability.ID, Path: capability.Upstream.PathTemplate, Query: url.Values{"location": {parameters.Resolved.ID}}}, nil
 		},
 	)
+	runtime.now = func() time.Time { return now }
 	result, problem := runtime.Run(context.Background(), cli.Invocation{
 		Capability: capability(t, "weather.city.current"),
 		Common:     cli.CommonOptions{Timeout: time.Second},

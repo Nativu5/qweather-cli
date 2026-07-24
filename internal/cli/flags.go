@@ -140,6 +140,22 @@ func validateInvocation(capability catalog.Capability, input catalog.Input, comm
 		if err != nil || parsed.Format("2006-01-02") != input.Date {
 			return invalid(capability.ID, "--date must use a real YYYY-MM-DD date")
 		}
+		var days int
+		switch capability.ID {
+		case "marine.tide":
+			days = catalog.TideDateWindowDays
+		case "astronomy.sun.events", "astronomy.moon.events":
+			days = catalog.AstronomyDateWindowDays
+		}
+		if days > 0 {
+			first, last, _ := catalog.UTCDateWindow(time.Now(), days)
+			if parsed.Before(first) || parsed.After(last) {
+				return invalid(capability.ID, fmt.Sprintf("--date must be between %s and %s inclusive", first.Format("2006-01-02"), last.Format("2006-01-02")))
+			}
+		}
+	}
+	if capability.ID == "storm.list" && !catalog.SupportsStormYear(time.Now(), input.Year) {
+		return invalid(capability.ID, "--year must be the current or previous UTC calendar year")
 	}
 	if capability.Target == catalog.TargetAirStation && !providerPathID.MatchString(input.AirStationID) {
 		return invalid(capability.ID, "--air-station-id contains unsupported characters")

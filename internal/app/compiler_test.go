@@ -215,6 +215,7 @@ func TestCompileRequestTargetAndValidationEdges(t *testing.T) {
 }
 
 func TestCompileRequestCoversIssueSevenStormCapabilities(t *testing.T) {
+	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
 		id       string
 		input    catalog.Input
@@ -240,7 +241,7 @@ func TestCompileRequestCoversIssueSevenStormCapabilities(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.id, func(t *testing.T) {
 			capability := capability(t, test.id)
-			request, problem := CompileRequest(capability, RequestParameters{Input: test.input})
+			request, problem := CompileRequest(capability, RequestParameters{Input: test.input, Now: now})
 			if problem != nil {
 				t.Fatal(problem)
 			}
@@ -255,6 +256,7 @@ func TestCompileRequestCoversIssueSevenStormCapabilities(t *testing.T) {
 }
 
 func TestCompileRequestCoversIssueSevenMarineAndAstronomyCapabilities(t *testing.T) {
+	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
 		id       string
 		input    catalog.Input
@@ -293,7 +295,7 @@ func TestCompileRequestCoversIssueSevenMarineAndAstronomyCapabilities(t *testing
 		t.Run(test.id, func(t *testing.T) {
 			capability := capability(t, test.id)
 			request, problem := CompileRequest(capability, RequestParameters{
-				Input: test.input, Resolved: test.resolved, Language: test.language,
+				Input: test.input, Resolved: test.resolved, Language: test.language, Now: now,
 			})
 			if problem != nil {
 				t.Fatal(problem)
@@ -386,15 +388,16 @@ func TestCompileRequestCoversIssueSevenSolarAndAccountCapabilities(t *testing.T)
 }
 
 func TestCompileRequestRejectsIssueSevenInvalidParameters(t *testing.T) {
+	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name       string
 		id         string
 		parameters RequestParameters
 	}{
-		{name: "storm year", id: "storm.list", parameters: RequestParameters{Input: catalog.Input{Year: 2017}}},
+		{name: "storm year", id: "storm.list", parameters: RequestParameters{Input: catalog.Input{Year: 2024}, Now: now}},
 		{name: "missing storm ID", id: "storm.track"},
 		{name: "missing tide station", id: "marine.tide", parameters: RequestParameters{Input: catalog.Input{Date: "2026-07-25"}}},
-		{name: "invalid tide date", id: "marine.tide", parameters: RequestParameters{Input: catalog.Input{TideStationID: "P66981", Date: "2026-02-30"}}},
+		{name: "invalid tide date", id: "marine.tide", parameters: RequestParameters{Input: catalog.Input{TideStationID: "P66981", Date: "2026-02-30"}, Now: now}},
 		{
 			name: "missing solar coordinate", id: "solar.radiation.forecast",
 			parameters: RequestParameters{Input: catalog.Input{Hours: 24, IntervalMinutes: 60}},
@@ -421,7 +424,7 @@ func TestCompileRequestRejectsIssueSevenInvalidParameters(t *testing.T) {
 		},
 		{
 			name: "invalid sun date", id: "astronomy.sun.events",
-			parameters: RequestParameters{Input: catalog.Input{Date: "2026-02-30"}, Resolved: place.Resolved{ID: "101010100"}},
+			parameters: RequestParameters{Input: catalog.Input{Date: "2026-02-30"}, Resolved: place.Resolved{ID: "101010100"}, Now: now},
 		},
 		{name: "missing moon target", id: "astronomy.moon.events", parameters: RequestParameters{Input: catalog.Input{Date: "2026-07-25"}}},
 		{
@@ -442,6 +445,48 @@ func TestCompileRequestRejectsIssueSevenInvalidParameters(t *testing.T) {
 			_, problem := CompileRequest(capability(t, test.id), test.parameters)
 			if problem == nil || problem.ExitCode != 2 || problem.Code != "INVALID_INVOCATION" || problem.Capability != test.id {
 				t.Fatalf("problem = %#v", problem)
+			}
+		})
+	}
+}
+
+func TestCompileRequestEnforcesIssueSevenTemporalWindows(t *testing.T) {
+	now := time.Date(2026, 12, 29, 1, 30, 0, 0, time.FixedZone("UTC+14", 14*60*60))
+	tests := []struct {
+		name     string
+		id       string
+		input    catalog.Input
+		resolved place.Resolved
+		wantOK   bool
+	}{
+		{name: "storm current UTC year", id: "storm.list", input: catalog.Input{Year: 2026}, wantOK: true},
+		{name: "storm previous UTC year", id: "storm.list", input: catalog.Input{Year: 2025}, wantOK: true},
+		{name: "storm year too old", id: "storm.list", input: catalog.Input{Year: 2024}},
+		{name: "storm future year", id: "storm.list", input: catalog.Input{Year: 2027}},
+		{name: "tide today", id: "marine.tide", input: catalog.Input{TideStationID: "P66981", Date: "2026-12-28"}, wantOK: true},
+		{name: "tide ninth day ahead", id: "marine.tide", input: catalog.Input{TideStationID: "P66981", Date: "2027-01-06"}, wantOK: true},
+		{name: "tide yesterday", id: "marine.tide", input: catalog.Input{TideStationID: "P66981", Date: "2026-12-27"}},
+		{name: "tide tenth day ahead", id: "marine.tide", input: catalog.Input{TideStationID: "P66981", Date: "2027-01-07"}},
+		{name: "sun today", id: "astronomy.sun.events", input: catalog.Input{Date: "2026-12-28"}, resolved: place.Resolved{ID: "101010100"}, wantOK: true},
+		{name: "sun fifty-ninth day ahead", id: "astronomy.sun.events", input: catalog.Input{Date: "2027-02-25"}, resolved: place.Resolved{ID: "101010100"}, wantOK: true},
+		{name: "sun yesterday", id: "astronomy.sun.events", input: catalog.Input{Date: "2026-12-27"}, resolved: place.Resolved{ID: "101010100"}},
+		{name: "sun sixtieth day ahead", id: "astronomy.sun.events", input: catalog.Input{Date: "2027-02-26"}, resolved: place.Resolved{ID: "101010100"}},
+		{name: "moon today", id: "astronomy.moon.events", input: catalog.Input{Date: "2026-12-28"}, resolved: place.Resolved{ID: "101010100"}, wantOK: true},
+		{name: "moon fifty-ninth day ahead", id: "astronomy.moon.events", input: catalog.Input{Date: "2027-02-25"}, resolved: place.Resolved{ID: "101010100"}, wantOK: true},
+		{name: "moon yesterday", id: "astronomy.moon.events", input: catalog.Input{Date: "2026-12-27"}, resolved: place.Resolved{ID: "101010100"}},
+		{name: "moon sixtieth day ahead", id: "astronomy.moon.events", input: catalog.Input{Date: "2027-02-26"}, resolved: place.Resolved{ID: "101010100"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, problem := CompileRequest(capability(t, test.id), RequestParameters{
+				Input: test.input, Resolved: test.resolved, Now: now,
+			})
+			if test.wantOK && problem != nil {
+				t.Fatalf("CompileRequest() problem = %#v", problem)
+			}
+			if !test.wantOK && (problem == nil || problem.Code != "INVALID_INVOCATION") {
+				t.Fatalf("CompileRequest() problem = %#v, want INVALID_INVOCATION", problem)
 			}
 		})
 	}

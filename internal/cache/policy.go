@@ -78,8 +78,11 @@ func inactiveStormResponse(capabilityID string, data json.RawMessage) bool {
 		return json.Unmarshal(object["isActive"], &isActive) == nil && isActive == "0"
 	case "storm.forecast":
 		raw, ok := object["forecast"]
-		if !ok || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		if !ok {
 			return false
+		}
+		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return true
 		}
 		var forecast []json.RawMessage
 		return json.Unmarshal(raw, &forecast) == nil && len(forecast) == 0

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Nativu5/qweather-cli/internal/buildinfo"
 	"github.com/Nativu5/qweather-cli/internal/catalog"
@@ -186,15 +188,19 @@ func TestSemanticInputValidationPrecedesRuntime(t *testing.T) {
 }
 
 func TestIssueSevenTypedValidationPrecedesRuntime(t *testing.T) {
+	today := time.Now().UTC()
 	tests := [][]string{
 		{"storm", "list", "--year", "2017", "--allow-product", "marine"},
+		{"storm", "list", "--year", strconv.Itoa(today.Year() + 2), "--allow-product", "marine"},
 		{"storm", "track", "--storm-id", "", "--allow-product", "marine"},
 		{"marine", "tide", "--tide-station-id", "P66981", "--date", "2026-02-30", "--allow-product", "marine"},
+		{"marine", "tide", "--tide-station-id", "P66981", "--date", today.AddDate(0, 0, catalog.TideDateWindowDays+1).Format("2006-01-02"), "--allow-product", "marine"},
 		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--hours", "61", "--allow-product", "solar"},
 		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--interval-min", "45", "--allow-product", "solar"},
 		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--include", "poa", "--allow-product", "solar"},
 		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--tilt-deg", "30.5", "--allow-product", "solar"},
 		{"astronomy", "position", "--coordinate", "geo:39.9,116.4", "--at", "not-a-time", "--altitude-m", "43"},
+		{"astronomy", "sun", "--place-id", "101010100", "--date", today.AddDate(0, 0, catalog.AstronomyDateWindowDays+1).Format("2006-01-02")},
 		{"astronomy", "position", "--coordinate", "geo:39.9,116.4", "--at", "2026-07-25T12:30:00+08:00", "--altitude-m", "NaN"},
 		{"account", "usage", "--project-id", "project_123", "--credential-id", "cred_abc", "--allow-sensitive-output", "account"},
 	}

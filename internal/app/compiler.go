@@ -239,8 +239,11 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 		setLanguage(query, parameters.Language)
 
 	case "storm.list":
-		if input.Year < 2018 || input.Year > 2100 {
-			return qweather.Request{}, invalidRequest(capability.ID, "--year is outside the supported range")
+		if parameters.Now.IsZero() {
+			return qweather.Request{}, internalRequestProblem(capability.ID, "request clock is unavailable")
+		}
+		if !catalog.SupportsStormYear(parameters.Now, input.Year) {
+			return qweather.Request{}, invalidRequest(capability.ID, "--year must be the current or previous UTC calendar year")
 		}
 		request.Path = "/v7/tropical/storm-list"
 		query.Set("basin", "NP")
@@ -263,7 +266,7 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 		if stationID == "" {
 			return qweather.Request{}, invalidRequest(capability.ID, "--tide-station-id must not be empty")
 		}
-		date, problem := providerDate(input.Date, capability.ID)
+		date, problem := providerDateInWindow(input.Date, capability.ID, parameters.Now, catalog.TideDateWindowDays)
 		if problem != nil {
 			return qweather.Request{}, problem
 		}
@@ -327,7 +330,7 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 		if problem != nil {
 			return qweather.Request{}, problem
 		}
-		date, problem := providerDate(input.Date, capability.ID)
+		date, problem := providerDateInWindow(input.Date, capability.ID, parameters.Now, catalog.AstronomyDateWindowDays)
 		if problem != nil {
 			return qweather.Request{}, problem
 		}
@@ -471,6 +474,25 @@ func providerDate(value, capabilityID string) (string, *output.Problem) {
 	return parsed.Format("20060102"), nil
 }
 
+func providerDateInWindow(value, capabilityID string, now time.Time, days int) (string, *output.Problem) {
+	date, problem := providerDate(value, capabilityID)
+	if problem != nil {
+		return "", problem
+	}
+	if now.IsZero() {
+		return "", internalRequestProblem(capabilityID, "request clock is unavailable")
+	}
+	parsed, _ := time.Parse("20060102", date)
+	today, last, ok := catalog.UTCDateWindow(now, days)
+	if !ok {
+		return "", internalRequestProblem(capabilityID, "request date window is unavailable")
+	}
+	if parsed.Before(today) || parsed.After(last) {
+		return "", invalidRequest(capabilityID, fmt.Sprintf("--date must be between %s and %s inclusive", today.Format("2006-01-02"), last.Format("2006-01-02")))
+	}
+	return date, nil
+}
+
 func providerSolarTimestamp(value, capabilityID string) (string, string, string, *output.Problem) {
 	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
 	if err != nil {
@@ -532,6 +554,12 @@ func setLimit(query url.Values, limit int, capabilityID string) *output.Problem 
 
 func invalidRequest(capabilityID, message string) *output.Problem {
 	problem := output.NewProblem(2, "INVALID_INVOCATION", message)
+	problem.Capability = capabilityID
+	return problem
+}
+
+func internalRequestProblem(capabilityID, message string) *output.Problem {
+	problem := output.NewProblem(10, "INTERNAL_ERROR", message)
 	problem.Capability = capabilityID
 	return problem
 }

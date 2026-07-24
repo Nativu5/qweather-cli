@@ -24,7 +24,7 @@ var ErrPolicyDisabled = errors.New("cache policy does not permit persistence")
 type Key struct {
 	capabilityID string
 	profile      string
-	ttl          time.Duration
+	policyMaxTTL time.Duration
 	family       catalog.ResponseFamily
 	digest       [sha256.Size]byte
 }
@@ -117,7 +117,7 @@ func BuildKey(capability catalog.Capability, material Material) (Key, error) {
 	}
 	return Key{
 		capabilityID: capability.ID, profile: material.Profile,
-		ttl: maximumTTL(capability.Cache), family: capability.Upstream.ResponseFamily,
+		policyMaxTTL: maximumTTL(capability.Cache), family: capability.Upstream.ResponseFamily,
 		digest: sha256.Sum256(encoded),
 	}, nil
 }
