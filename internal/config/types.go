@@ -64,6 +64,7 @@ type profileFile struct {
 	CredentialID   string `toml:"credential_id"`
 	PrivateKeyFile string `toml:"private_key_file"`
 	JWTTTL         string `toml:"jwt_ttl"`
+	APIKey         string `toml:"api_key"`
 	APIKeyEnv      string `toml:"api_key_env"`
 	Language       string `toml:"language"`
 	Unit           string `toml:"unit"`

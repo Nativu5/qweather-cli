@@ -26,6 +26,7 @@ unit = "metric"
 [profiles.legacy]
 api_host = "abc1234xyz.def.qweatherapi.com"
 auth = "api_key"
+api_key = "replace-with-your-api-key"
 api_key_env = "QWEATHER_API_KEY"
 language = "auto"
 unit = "metric"
@@ -56,7 +57,9 @@ explicitly changed non-secret flag
     > compiled default
 ```
 
-An environment variable that exists with an empty value is an explicit invalid override; it does not silently fall back to the file. Only a fixed, documented list of environment variables is recognized. Environment variables override the selected profile, not arbitrary unselected profiles.
+An environment variable that exists with an empty value is an explicit invalid override; it does not silently fall back to the file. Only the documented fixed overrides and the one secret variable explicitly referenced by `api_key_env` are recognized. Environment variables override the selected profile, not arbitrary unselected profiles.
+
+For API-key profiles, `api_key_env` names the environment variable to consult and defaults to `QWEATHER_API_KEY` when omitted. A present, non-empty environment value takes precedence over `api_key`. When that environment variable is absent, the loader falls back to the inline `api_key`; when it is present but empty, validation fails without falling back. The two fields may coexist.
 
 ### Supported environment sources
 
@@ -74,7 +77,8 @@ Non-secret overrides include:
 
 Secret sources include:
 
-- `QWEATHER_API_KEY` for API-key compatibility mode;
+- `api_key` in the selected API-key profile;
+- the environment variable referenced by `api_key_env`, defaulting to `QWEATHER_API_KEY`;
 - `QWEATHER_JWT` for an externally issued short-lived token.
 
 The loader records that a secret source is present and where it came from, but never includes its value in diagnostics or serializable effective configuration.
@@ -89,10 +93,11 @@ The loader records that a secret source is present and where it came from, but n
 - authentication-method required and mutually exclusive fields;
 - JWT duration and the official 24-hour maximum;
 - private-key readability, PEM/PKCS#8 Ed25519 parsing, and local file permissions;
-- referenced environment-secret presence; and
+- inline API-key or referenced environment-secret presence and precedence;
+- restrictive Unix permissions for any configuration file containing an inline API key; and
 - cache settings and directory permissions.
 
-It does not test credentials by consuming a weather request.
+It does not test credentials by consuming a weather request, and it never prints either an inline or environment-supplied secret.
 
 ## Authentication
 
@@ -100,7 +105,7 @@ QWeather supports API KEY and Ed25519 JWT and [recommends JWT](https://dev.qweat
 
 1. generate a JWT from project ID, credential ID, and an Ed25519 private-key file;
 2. use a complete short-lived JWT supplied by `QWEATHER_JWT`; or
-3. use an API KEY supplied through its referenced environment variable.
+3. use an API KEY supplied inline in a private profile or through its referenced environment variable.
 
 For locally generated JWTs:
 
@@ -113,7 +118,7 @@ For locally generated JWTs:
 
 The implementation uses Go's standard `crypto/ed25519`, `crypto/x509`, `encoding/pem`, and Base64URL support. It does not require a JWT framework.
 
-There are no secret flags. The configuration module never writes an effective configuration back to TOML. A future `config init`, if added, may create only a secret-free template.
+There are no secret flags. On Unix, a configuration file containing any non-empty inline API key must be a regular file whose permissions do not allow group or other access (for example, mode `0600`). The configuration module never writes an effective configuration back to TOML. A future `config init`, if added, may create only a secret-free template.
 
 ## Network behaviour
 
