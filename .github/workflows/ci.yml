@@ -32,32 +32,27 @@ jobs:
           cache: true
 
       - name: Check formatting
-        run: test -z "$(gofmt -l .)"
+        run: make fmt-check
 
       - name: Verify modules
-        run: go mod verify
+        run: make mod-verify
 
       - name: Run unit tests
-        run: go test ./...
+        run: make test
 
       - name: Run race tests
-        run: go test -race ./...
+        run: make test-race
 
       - name: Run vet
-        run: go vet ./...
+        run: make vet
 
       - name: Build CLI
-        run: go build -o "$RUNNER_TEMP/qweather" ./cmd/qweather
+        run: make build BINARY="$RUNNER_TEMP/qweather"
 
       - name: Compile live E2E package without running tests
-        run: go test -tags=e2e ./tests/e2e -run '^$'
+        run: make e2e-compile
 
       - name: Check diff whitespace
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            git diff-tree --check --no-commit-id -r HEAD
-          else
-            git diff --check "$BASE_SHA...HEAD"
-          fi
+        run: make ci-diff-check

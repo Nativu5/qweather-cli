@@ -18,11 +18,13 @@ go test -tags=e2e ./tests/e2e -run '^$'
 git diff --check
 ```
 
-For convenience, `make check` runs the same deterministic sequence and writes
-its build artifact to the ignored `bin/` directory. Use `make test` for the
-normal non-live Go suite, `make build` for `bin/qweather`, and `make help` for
-the small target list. The explicit commands above remain the canonical gate
-definition and CI keeps them as individually visible steps.
+The Makefile is the canonical local and CI command entry point. `make check`
+runs the deterministic sequence above and writes its build artifact to the
+ignored `bin/` directory. Use `make test` for the normal non-live Go suite,
+`make build` for `bin/qweather`, and `make help` for the small target list. CI
+invokes the corresponding granular Make targets so each gate remains an
+individually visible workflow step. The explicit commands above document what
+those targets execute.
 
 The tagged command compiles the E2E package with a regular expression that
 matches no tests. It validates build compatibility without reading live-test

@@ -68,7 +68,7 @@ jobs:
       - name: Build release-smoke binary
         env:
           CGO_ENABLED: "0"
-        run: go build -trimpath -o "$RUNNER_TEMP/qweather" ./cmd/qweather
+        run: make build BINARY="$RUNNER_TEMP/qweather" BUILD_FLAGS=-trimpath
 
       - name: Run the three approved Basic calls
         env:
