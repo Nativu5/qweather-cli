@@ -100,6 +100,11 @@ meaning, review the public contract in `docs/design/cli-contract.md`.
 - GitHub Issues are the source of work and PRDs for `Nativu5/qweather-cli`.
 - Before implementation, identify the relevant issue and read its body and
   comments. Do not infer requirements from a PR alone.
+- Before every commit, inspect the staged diff and proposed subject. Commit
+  subjects must use Conventional Commits syntax (for example,
+  `type(scope): description` or `type: description`) and accurately describe
+  the staged change. A squash merge uses the PR title as the resulting commit
+  subject, so the PR title must pass the same check before the PR becomes Ready.
 - Keep non-trivial changes scoped to an issue. If no suitable issue exists,
   create or request one before expanding the work.
 - Use `gh` for issue operations and follow

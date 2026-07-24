@@ -71,8 +71,18 @@ alternatives first.
   as a hidden `TODO`.
 - Never use live QWeather credentials during normal implementation or tests.
 
+Before creating every commit:
+
+1. Inspect `git status --short`, the staged diff, and run
+   `git diff --cached --check`; unstage or remove anything outside the Issue.
+2. Write down the proposed subject and verify that it uses Conventional
+   Commits syntax (`type(scope): description` or `type: description`) and
+   accurately describes the staged change.
+3. Create the commit only after those checks pass, then verify the recorded
+   subject with `git log -1 --format='%s'`.
+
 Commit boundaries should make the change inspectable, but a reviewer evaluates
-the complete branch diff, not commit style.
+the complete branch diff as well as the validity of each commit subject.
 
 ## 5. Run local gates
 
@@ -101,7 +111,11 @@ authorizes its credentials and quota.
 3. Record the PR URL, full 40-character base commit SHA, full 40-character head
    commit SHA, and exact diff command. Reviewers must evaluate that fixed range,
    not a moving branch name alone.
-4. Target `main` for ordinary integration. Release work follows the dedicated
+4. Before marking the PR Ready, inspect `git log <base>..HEAD --format='%h %s'`
+   and verify every subject. Verify that the PR title is also a valid
+   Conventional Commit subject and accurately summarizes the complete squash
+   diff; GitHub uses that title for the commit on `main`.
+5. Target `main` for ordinary integration. Release work follows the dedicated
    release policy and never converts a normal `main` merge into a publication.
 
 Keep the PR Draft while either review axis is missing, failing, or stale after a
