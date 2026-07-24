@@ -23,7 +23,7 @@ jwt_ttl = "15m"
 language = "auto"
 unit = "metric"
 
-[profiles.legacy]
+[profiles.api_key]
 api_host = "abc1234xyz.def.qweatherapi.com"
 auth = "api_key"
 api_key = "replace-with-your-api-key"
@@ -128,9 +128,9 @@ There are no secret flags. On Unix, a configuration file containing any non-empt
 - The default deadline is 10 seconds and may be changed per invocation.
 - The Go transport honours `HTTPS_PROXY`, `HTTP_PROXY`, and `NO_PROXY`.
 - Redirects to a different host are rejected before credentials can be forwarded.
-- There is no automatic retry. The problem envelope reports whether a failure is retryable.
-- 400/401/403 and other permanent errors stop immediately. A caller may deliberately retry a 429 or transient failure after observing the structured problem.
-- Legacy HTTP-200 bodies are also checked for provider `code`; modern problem responses are classified by HTTP status and body.
+- There is no automatic retry. A Text Problem or Machine Problem reports whether a QWeather-owned failure is retryable.
+- 400/401/403 and other permanent errors stop immediately. A caller may deliberately retry a 429 or transient failure after observing the selected problem presentation.
+- `code-refer-v1` HTTP-200 bodies are also checked for provider `code`; `metadata-v1` failures are classified by HTTP status and body. `console-v1` remains a separate Account response shape.
 
 ## Persistent cache
 
@@ -153,7 +153,7 @@ QWeather [recommends elastic caching](https://dev.qweather.com/docs/best-practic
 
 The [GeoAPI restriction](https://dev.qweather.com/docs/terms/restriction/#cache-or-index-geoapi-data) is a hard policy. No flag or configuration value may enable persistent or cross-process caching of Geo responses, candidate lists, search text, negative results, place mappings, or POIs.
 
-Automatic place resolution may use Geo Data during one invocation. The subsequent non-Geo data request may use persistent cache, but only the eligible provider body is stored. The result envelope and `resolvedPlace` object are rebuilt for the current invocation and are never written wholesale.
+Automatic place resolution may use Geo Data during one invocation. The subsequent non-Geo data request may use persistent cache, but only the eligible Provider Body and minimal response metadata are stored. Text Views, Machine Results, and the `resolvedPlace` object are rebuilt for the current invocation and are never written wholesale.
 
 ### Key and storage
 
@@ -165,9 +165,11 @@ A cache key is a SHA-256 digest of a canonical structure containing:
 - typed, normalized downstream target; and
 - every effective parameter that can affect the provider body, including defaults.
 
-It never contains an Authorization header, token, API KEY, private key, reversible secret hash, raw request URL, output formatting option, or Geo query text.
+It never contains an Authorization header, token, API KEY, private key, reversible secret hash, raw request URL, output mode, or Geo query text.
 
-The file adapter uses `os.UserCacheDir()`, directory mode `0700`, file mode `0600`, same-directory temporary files, and atomic rename. Each record stores the provider body, outcome, `storedAt`, `expiresAt`, the policy maximum TTL used for compatibility validation, and a small set of provider diagnostic timestamps. Expired entries are removed opportunistically under a bounded disk budget.
+The file adapter uses `os.UserCacheDir()`, directory mode `0700`, file mode `0600`, same-directory temporary files, and atomic rename. Each `qweather.cache-record/v3` record stores the Provider Body, outcome, structural Response Family, HTTP status, `storedAt`, `expiresAt`, the policy maximum TTL used for compatibility validation, and only the response metadata required to reconstruct an application Result. It never stores rendered output. Expired entries are removed opportunistically under a bounded disk budget.
+
+The v3 record schema replaces the private-development `qweather.cache-record/v2` shape because the Response Family labels changed from lifecycle-suggesting names to `code-refer-v1`, `metadata-v1`, and `console-v1`. Older records are treated as incompatible and removed through normal bounded cleanup; there is no migration or compatibility mapping before public distribution. This project-only record-label change does not alter request semantics, so it does not increment a Capability's `RequestRevision` or change the `qweather.cache-key/v1` structure.
 
 ### Read and refresh
 
@@ -219,7 +221,7 @@ A deterministic maintainer sync pins the full upstream commit and records every 
 
 The English and Chinese specifications have the same operation inventory but are not structurally identical. Sync validation compares their path, method, operation ID, lifecycle, parameter, and response sets and reports schema differences for review; it never merges the locales or treats one as a lossless translation of the other.
 
-Agents use the generated command reference for the supported CLI surface and may consult the bundled OpenAPI only for upstream parameters, response schemas, and field descriptions. Deprecated paths or other specification details never imply an executable capability. For conflicts, prose-only constraints, and volatile pricing, geography, alert, or lifecycle facts, the curated project contract and current official documentation take precedence.
+Agents explicitly pass `--output text` for routine reading, select `--output json` when they need exact field paths or JSON value types, and reserve `--output body` for byte-exact successful provider data. They use the generated command reference for the supported CLI surface and may consult the bundled OpenAPI only for upstream parameters, response schemas, and field descriptions. Deprecated paths or other specification details never imply an executable capability. For conflicts, prose-only constraints, and volatile pricing, geography, alert, or lifecycle facts, the curated project contract and current official documentation take precedence.
 
 The rest of the official site checkout and detailed research reports are not shipped. Curated references include official hyperlinks and `last_verified` dates.
 
@@ -271,7 +273,7 @@ Release builds use `CGO_ENABLED=0`. Unsupported platforms fail clearly; the adap
 
 ### Versioning
 
-One semantic version identifies the Git tag, binary, npm package, and generated Skill catalog. `qweather version --json` also exposes Go version, source commit, build time, and registry hash.
+One semantic version identifies the Git tag, binary, npm package, and generated Skill catalog. `qweather version --output json` also exposes Go version, source commit, build time, and registry hash.
 
 The npm adapter never resolves `latest` at runtime. A package version downloads only its matching release version.
 
@@ -300,11 +302,13 @@ The project uses focused unit tests and a small approved smoke surface:
 - cache hit, expiry, Geo prohibition, and Account opt-in;
 - TOML precedence and strict decoding;
 - JWT signing with a fixed clock;
-- representative result/problem and exit-code behaviour;
+- all 28 Capability Text entry templates executing against reviewed official examples without `<no value>`, duplicate Attribution, data loss, or unexpected fallback;
+- three full Text goldens representing a current object, an array forecast, and a deeply nested `metadata-v1` response;
+- representative Text/Machine Result/Machine Problem, Provider Body, fallback, and exit-code behaviour;
 - npm platform selection, SHA256 success/failure, and missing-binary guidance;
 - pinned OpenAPI snapshot integrity, local-example closure, locale contract comparison, source attribution, and reviewed-drift detection;
 - cross-compilation of the six release targets; and
-- manual or approved smoke checks for Geo plus current weather, one modern response family, and npm install/version.
+- manual or approved smoke checks for Geo plus current weather, one `metadata-v1` Capability, and npm install/version.
 
 There is no coverage percentage target, scheduled live workflow, exhaustive platform runtime suite, or large golden-fixture corpus. The three Storm capabilities, Marine tide, and Solar forecast have no free allowance and are excluded from complete live E2E and release smoke under [ADR 0006](../adr/0006-limit-live-e2e-coverage-for-paid-only-capabilities.md). Account is also excluded from the release-smoke suite because its output is sensitive. A narrowly scoped one-off Account diagnostic requires explicit approval and protected credentials; it does not expand the release-smoke contract.
 

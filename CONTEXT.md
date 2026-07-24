@@ -28,6 +28,28 @@ _Avoid_: City code, station ID
 A successful query outcome for which QWeather has no matching records. No Data is not a transport, authentication, or validation failure.
 _Avoid_: Error, empty failure
 
+## Presentation
+
+**Text View**:
+A deterministic, readable presentation of one successful query or QWeather-owned Problem. It is not a machine compatibility contract, but it preserves every provider field through a Capability-specific primary layout and a generic remainder.
+_Avoid_: Text schema, pretty JSON
+
+**Machine Result**:
+The versioned `qweather.result/v1` JSON representation of a successful query. It preserves the complete decoded Provider Body under `data` and is the stable field-level interface for automation.
+_Avoid_: Default output, formatted body
+
+**Machine Problem**:
+The versioned `qweather.problem/v1` JSON representation of a QWeather-owned failure. Cobra invocation diagnostics are not Machine Problems.
+_Avoid_: Cobra error, debug event
+
+**Provider Body**:
+The exact successful response bytes received from QWeather. Eligible Provider Bodies may be cached and may be written without a project envelope, but they are never a project-owned schema.
+_Avoid_: Result, Text View
+
+**Response Family**:
+A project-owned structural classification of QWeather response envelopes: `code-refer-v1`, `metadata-v1`, or `console-v1`. A Response Family describes parsing shape, not whether a Capability is current or deprecated.
+_Avoid_: Legacy API, modern API
+
 ## Lifecycle and policy
 
 **Current Capability**:

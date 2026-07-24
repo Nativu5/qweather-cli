@@ -17,7 +17,7 @@ See also:
 
 - Cover all 28 current QWeather GET endpoints with typed commands.
 - Hide upstream path versions, parameter spelling, coordinate-order differences, authentication, and response-family differences.
-- Make routine weather queries safe for agents, including deterministic place resolution and structured errors.
+- Make routine weather queries safe for agents, including deterministic place resolution and explicit readable or machine errors.
 - Reduce repeated billable requests with capability-aware persistent caching while respecting GeoAPI storage restrictions.
 - Keep the command contract, machine-readable catalog, Skill references, and tests derived from one curated source.
 - Keep source and runtime behaviour easy for an agent to inspect and diagnose.
@@ -39,7 +39,10 @@ flowchart LR
     Skill --> Shim["npm adapter / JS shim"]
     Shim --> CLI["Go CLI interface"]
     CLI --> App["Application module"]
+    App --> Present["Presentation module"]
+    Present --> Streams["stdout / stderr"]
     App --> Catalog["Curated capability registry"]
+    Catalog --> Present
     App --> Config["Typed configuration module"]
     App --> Cache["Persistent cache module"]
     App --> Port["QWeather port (internal seam)"]
@@ -48,7 +51,7 @@ flowchart LR
     HTTP --> Provider["QWeather"]
 ```
 
-The Go process is the main module. Its external interface is the complete CLI contract: command paths, flags, configuration precedence, output schemas, error modes, cache behaviour, network side effects, and performance limits. The Skill and JavaScript shim do not reproduce provider transport logic.
+The Go process is the main module. Its external interface is the complete CLI contract: command paths, flags, configuration precedence, presentation modes, machine schemas, error modes, cache behaviour, network side effects, and performance limits. The Skill and JavaScript shim do not reproduce provider transport or presentation logic.
 
 ## Deep modules
 
@@ -62,11 +65,21 @@ The application module accepts parsed command input and returns a result or prob
 4. resolves a Place Spec when the chosen capability requires it;
 5. normalizes the provider request and cache key;
 6. returns a valid cached response or invokes the QWeather port;
-7. classifies legacy and current provider response families;
-8. preserves Attribution and unknown response fields; and
-9. renders the stable process contract.
+7. classifies `code-refer-v1`, `metadata-v1`, and `console-v1` Response Families;
+8. preserves Attribution, response metadata, the Provider Body, and unknown response fields; and
+9. returns a successful Result or a QWeather-owned Problem to the presentation boundary.
 
 Deleting this module would force every caller to know GeoAPI resolution, target types, coordinate order, JWT construction, cache policy, three response families, attribution, and provider error semantics. It therefore provides depth rather than acting as a URL passthrough.
+
+### Presentation module
+
+The presentation module accepts the selected output mode plus an application Result or Problem. It owns the final stdout/stderr representation:
+
+- `text` selects one embedded entry template by Capability ID, adds common context, and preserves unconsumed provider fields through a deterministic generic tree;
+- `json` serializes the versioned Machine Result or Machine Problem without optional whitespace; and
+- `body` writes an exact successful Provider Body for provider commands and never exposes an upstream error body.
+
+The 28 Current Capabilities each have one manually maintained entry template. Templates may share common partials, but they are compiled into the binary, cannot be overridden, and are validated against the registry at construction. A runtime shape mismatch falls back to the complete generic Text tree rather than converting a successful provider query into an error. Presentation never changes provider request semantics or cache identity.
 
 ### Capability registry
 
@@ -81,7 +94,7 @@ The registry is compiled-in, project-owned Go data. Each record contains:
 - cache policy and evidence level; and
 - a request-semantics revision.
 
-The registry produces the Cobra leaves, `capability list/show`, generated Skill references, and table-driven coverage tests. It is not loaded from the network at runtime.
+The registry produces the Cobra leaves, `capability list/show`, generated Skill references, and table-driven coverage tests. Registry validation also proves that every Current Capability has exactly one Text entry template. It is not loaded from the network at runtime.
 
 The official [English](https://github.com/qwd/dev-site/blob/02bb257a032c503c65924005da6ebca48d94b390/assets/openapi/qweather-apis-en.yml) and [Chinese](https://github.com/qwd/dev-site/blob/02bb257a032c503c65924005da6ebca48d94b390/assets/openapi/qweather-apis-zh.yml) OpenAPI specifications are evidence, not executable configuration. They contain equivalent path-template pairs such as `/v7/weather/{days}` and `/v7/weather/{hours}`, a `format: date` mismatch with QWeather's `yyyyMMdd` wire format, and constraints that only appear in prose. The two locales also have reviewed structural differences and must not be silently merged. CI may compare a reviewed, pinned upstream snapshot with the registry, but upstream changes require review before becoming executable. Verbatim specifications and their local examples may be shipped with the Skill for offline field and schema lookup; neither the installed CLI nor the Skill discovers commands from them at runtime.
 
@@ -106,7 +119,7 @@ Provider transport details do not appear in the public CLI interface, and the sc
 
 ### Cache module
 
-The cache module owns normalized cache keys, hard TTLs, atomic file storage, expiration, and clear/status operations. It stores only eligible provider response bodies and minimal timestamps; it never stores secrets, Geo responses, Geo search text, or resolved-place mappings.
+The cache module owns normalized cache keys, hard TTLs, atomic file storage, expiration, and clear/status operations. It stores only eligible provider response bodies and the minimal response metadata required to rebuild a Result; it never stores rendered Text or JSON, secrets, Geo responses, Geo search text, or resolved-place mappings.
 
 The local filesystem is a local-substitutable dependency. Tests exercise the cache through its module interface using a temporary or in-memory adapter; the cache seam remains internal to the application module.
 
@@ -114,7 +127,7 @@ The local filesystem is a local-substitutable dependency. Tests exercise the cac
 
 The npm adapter is a distribution adapter, not a second implementation of the client. During an explicit npm installation it selects one release asset, downloads it, verifies an npm-embedded SHA256, and installs it atomically. During normal execution it only forwards arguments, signals, stdout, stderr, and exit status to the Go binary.
 
-The Skill is a concise agent workflow. It selects CLI commands, observes Product Gates, preserves Attribution, and loads detailed references only when needed. It includes a pinned, verbatim OpenAPI snapshot for provider-field lookup: English and Chinese specifications, their referenced local examples, a manifest, and upstream source and license attribution. It does not install software silently, construct provider URLs, hold credentials, or bundle the rest of the upstream documentation site.
+The Skill is a concise agent workflow. It selects CLI commands, explicitly passes `--output text` for routine reading, requests `--output json` when exact field paths or JSON types matter, observes Product Gates, preserves Attribution, and loads detailed references only when needed. It includes a pinned, verbatim OpenAPI snapshot for provider-field lookup: English and Chinese specifications, their referenced local examples, a manifest, and upstream source and license attribution. It does not install software silently, construct provider URLs, hold credentials, or bundle the rest of the upstream documentation site.
 
 ## Request flow
 
@@ -122,6 +135,7 @@ The Skill is a concise agent workflow. It selects CLI commands, observes Product
 sequenceDiagram
     participant C as Caller
     participant A as Application module
+    participant P as Presentation module
     participant G as Geo capability
     participant K as Cache module
     participant Q as QWeather adapter
@@ -142,7 +156,8 @@ sequenceDiagram
         Q-->>A: status + provider body
         A->>K: write eligible successful body
     end
-    A-->>C: result envelope or problem
+    A->>P: Result or Problem (Result retains Provider Body)
+    P-->>C: selected Text, JSON, or exact body output
 ```
 
 A charged or sensitive Product Gate is evaluated before the optional Geo request. A `--place` invocation can therefore never spend even a Basic Geo request before a required Marine, Solar, or Account acknowledgement is present.
@@ -160,7 +175,8 @@ internal/auth/                Ed25519 JWT and API-key providers
 internal/place/               Place Spec and safe resolver
 internal/cache/               cache policy and file adapter
 internal/qweather/            port, HTTP adapter, response classifier
-internal/output/              result/problem rendering
+internal/output/              Text, JSON, and Provider Body presentation
+internal/output/templates/    embedded Capability entry templates
 packages/npm/                 npm installer and JavaScript shim
 skills/qweather/              Skill and curated references
 docs/design/                  accepted design contracts
@@ -192,9 +208,10 @@ For volatile facts such as pricing, supported regions, alert types, and deprecat
 - [Use a Go CLI with Skill and npm adapters](../adr/0001-go-cli-with-skill-and-npm-adapters.md)
 - [Own a curated capability registry](../adr/0002-own-a-curated-capability-registry.md)
 - [Resolve human place names safely inside the CLI](../adr/0003-resolve-place-names-inside-the-cli.md)
-- [Return a stable envelope around provider data](../adr/0004-return-a-stable-result-envelope.md)
+- [Return a stable envelope around provider data (superseded)](../adr/0004-return-a-stable-result-envelope.md)
 - [Persist capability-aware data caches but never Geo Data](../adr/0005-cache-data-but-not-geo-data.md)
 - [Limit live E2E coverage to capabilities with a free allowance](../adr/0006-limit-live-e2e-coverage-for-paid-only-capabilities.md)
+- [Prefer Text Views with explicit machine output](../adr/0007-prefer-text-views-with-explicit-machine-output.md)
 
 ## Primary QWeather references
 

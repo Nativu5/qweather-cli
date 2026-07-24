@@ -78,7 +78,7 @@ rendered prose. One upstream commit may contain several classes.
 | --- | --- | --- |
 | Operation or lifecycle | added/removed path, method, `operationId`, deprecation, replacement, or sunset | `internal/catalog`, Tombstones, `internal/app/compiler.go`, CLI/help, compatibility policy |
 | Parameter | requiredness, name, type, enum, range, format, default, path/query placement, coordinate order | catalog flags/targets, compiler and validation, cache-key semantics, focused mapping tests |
-| Schema or example | response status/content type, field type, required field, enum, No Data shape, response family, example body | response classification, output/error handling, fixtures, generated field/reference material |
+| Schema or example | response status/content type, field type, required field, enum, No Data shape, Response Family, example body | response classification, Capability Text templates, generic remainder/fallback, output/error handling, fixtures, generated field/reference material |
 | Prose or policy | authentication, API Host, geography, pricing, quota, cache, Attribution, Product Gate, security guidance | config/network/cache policy, Billing Group, Product Gate, design contracts and Skill guidance |
 | License or terms | content license, API EULA, Geo storage restriction, trademark or redistribution term | `NOTICE`, manifest/distribution scope, cache/privacy rules; pause distribution when authority is unclear |
 
@@ -96,23 +96,28 @@ required repair or “no impact” with a reason:
   policy, and documentation URL;
 - `internal/app/compiler.go` for the exact provider path, query, normalization,
   validation, and coordinate order;
-- `internal/qweather/` and `internal/output/` for response-family, No Data,
-  problem, Attribution, and unknown-field preservation;
+- `internal/qweather/` and `internal/output/` for Response Family, No Data,
+  Text entry-template assumptions, generic remainder/fallback, Text/Machine
+  Problem, Provider Body, Attribution, and unknown-field preservation;
 - `internal/cache/` for eligibility, TTL/boundary, key inputs, and privacy;
 - `internal/cli/` plus `docs/design/cli-contract.md` for command paths, flags,
-  stdout/stderr schemas, and exit meanings;
+  output-mode selection, Machine Result/Machine Problem schemas, Text
+  presentation, stdout/stderr discipline, and exit meanings;
 - generated Skill command/schema references and their generator source;
 - the reviewed OpenAPI snapshot, manifest, source links, and `NOTICE`; and
 - focused unit tests for registry validation, request compilation, response
   classification, cache behaviour, and public process behaviour.
 
-Increment a Capability's `RequestRevision` whenever an accepted change can make
-an old persistent cache entry represent different request semantics or an
-incompatible provider response contract. Examples include a changed provider
-path, normalized target, effective parameter/default, response family, or
-cache-relevant policy. A prose edit, help-only clarification, or equivalent
-example correction does not require a revision. Add or update a cache-key test
-that demonstrates the decision.
+Increment a Capability's `RequestRevision` whenever an accepted upstream change
+can make an old persistent cache entry represent different request semantics or
+an incompatible provider response contract. Examples include a changed provider
+path, normalized target, effective parameter/default, structural Response
+Family semantics, or cache-relevant policy. A project-only Response Family label
+rename, presentation-only template change, prose edit, help-only clarification,
+or equivalent example correction does not require a revision. A cache-record
+schema change may invalidate old records independently without changing cache-key
+identity. Add or update a cache-key or cache-record test that demonstrates the
+decision.
 
 ## 5. Decide compatibility before repair
 
@@ -121,12 +126,14 @@ Classify the project-facing effect before editing:
 - **No public change:** upstream evidence changed but the curated mapping and
   public process contract remain correct.
 - **Compatible repair:** implementation catches up without changing a promised
-  command, required input, schema meaning, or exit meaning.
+  command, required input, Machine Result/Machine Problem meaning, or exit
+  meaning. A deterministic and complete Text layout may improve without being a
+  machine-contract break.
 - **Additive change:** a new optional flag or Current Capability is introduced;
   update the supported surface and generated references deliberately.
-- **Breaking change:** removal/rename, new required input, result/problem meaning
-  change, or exit meaning change; follow the major-version rule in the CLI
-  contract and provide migration guidance.
+- **Breaking change:** removal/rename, new required input, Machine Result/Machine
+  Problem meaning change, or exit meaning change; follow the major-version rule
+  in the CLI contract and provide migration guidance.
 - **Upstream ambiguity or legal risk:** keep the existing pin, mark the Issue
   blocked, and seek authoritative clarification. Do not guess or distribute.
 
@@ -135,7 +142,12 @@ A newer upstream commit is not by itself a reason to change the CLI or snapshot.
 ## 6. Repair and verify
 
 Implement the smallest coherent repair under one Issue. Prefer table-driven
-tests that pin the changed contract over broad copied fixtures. When the
+tests that pin the changed contract over broad copied fixtures. If an official
+example or schema changes, execute the affected Capability entry template,
+verify that all fields appear in either its primary layout or `Additional
+fields`, and exercise generic fallback when the structural assumption changed.
+Add a full Text golden only when the Capability represents one of the three
+maintained golden families or the common layout itself changed. When the
 distributed OpenAPI snapshot changes, verify every manifest hash, referenced
 local example, locale comparison, attribution file, and pinned source URL; run
 generation twice and require the second run to produce no diff.

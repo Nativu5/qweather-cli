@@ -34,6 +34,18 @@ Pull-request CI and `main` push CI run the same gates. They receive no QWeather
 credentials. `go test ./...` does not discover the build-tagged E2E package.
 Adding a normal test that uses the public network is prohibited.
 
+Text presentation remains deterministic without turning every Capability into a
+large golden fixture. Unit tests execute each of the 28 embedded entry templates
+against its reviewed official example and verify complete rendering, including
+the generic `Additional fields` remainder, without `<no value>`, duplicate
+Attribution, data loss, or unexpected fallback. Three full Text goldens
+represent a current object, an array forecast, and a deeply nested
+`metadata-v1` response. Focused tests separately cover No Data, generic fallback,
+sorted object keys, provider-ordered untruncated arrays, Attribution, units, Text
+Problems, compact Machine Result/Machine Problem output, and byte-exact Provider
+Body output. These tests use local fixtures and never expand the live-call
+budget.
+
 ## Layer 2: live release smoke
 
 `tests/e2e/e2e_test.go` is process-level verification of the released CLI
@@ -46,14 +58,16 @@ contract. It is guarded by the `e2e` build tag and requires all of:
 The suite executes sequentially and makes at most three Basic provider calls:
 
 1. Geo city lookup;
-2. current city weather using the `legacy-v1` response family; and
-3. current air quality using the `modern-v1` response family.
+2. current city weather using the `code-refer-v1` Response Family; and
+3. current air quality using the `metadata-v1` Response Family.
 
-Every command passes `--no-cache`. Inputs are exact Location IDs or coordinates
-where needed, so no implicit Geo resolution adds a fourth request. Assertions
-cover only the stable result envelope, Capability identity, Billing Group,
-response family, cache bypass, and the expected logical operation. The suite
-does not log successful provider bodies or secrets.
+Every provider command passes `--output json --no-cache`; the version/install
+smoke also selects `--output json` when it inspects build metadata. Inputs are
+exact Location IDs or coordinates where needed, so no implicit Geo resolution
+adds a fourth request. Assertions cover only the stable Machine Result,
+Capability identity, Billing Group, Response Family, cache bypass, and the
+expected logical operation. The suite does not assert Text layouts, request
+Provider Body mode, or log successful provider bodies or secrets.
 
 The normal execution path is the manual `.github/workflows/release-gate.yml`
 workflow on an exact `release/vX.Y.Z` branch and its protected
