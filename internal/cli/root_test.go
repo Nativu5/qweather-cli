@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,6 +20,12 @@ type recordingRuntime struct {
 	invocations []Invocation
 	body        []byte
 	problem     *output.Problem
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
 }
 
 func (r *recordingRuntime) Run(_ context.Context, invocation Invocation) (*output.Result, *output.Problem) {
@@ -185,6 +192,34 @@ func TestBodyModeUsesTextForQWeatherOwnedFailure(t *testing.T) {
 	)
 	if exit != 8 || stdout != "" || !strings.HasPrefix(stderr, "provider request timed out\nCode: TIMEOUT\nCapability: weather.city.current\nRetryable: true\n") || strings.Contains(stderr, `"schema"`) {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
+	}
+}
+
+func TestProviderOutputFailureIncludesCapability(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		expected string
+	}{
+		{
+			name:     "Text",
+			args:     []string{"weather", "city", "current", "--place-id", "101010100"},
+			expected: "failed to write command output\nCode: OUTPUT_ERROR\nCapability: weather.city.current\nRetryable: false\n",
+		},
+		{
+			name:     "JSON",
+			args:     []string{"weather", "city", "current", "--place-id", "101010100", "--output", "json"},
+			expected: `{"schema":"qweather.problem/v1","code":"OUTPUT_ERROR","message":"failed to write command output","capability":"weather.city.current","retryable":false}` + "\n",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			exit := Execute(context.Background(), newTestRoot(t, &recordingRuntime{}), test.args, failingWriter{}, &stderr)
+			if exit != 10 || stderr.String() != test.expected {
+				t.Fatalf("exit=%d stderr=%q, want %q", exit, stderr.String(), test.expected)
+			}
+		})
 	}
 }
 

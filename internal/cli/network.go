@@ -79,6 +79,7 @@ func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *Comm
 			info, err := renderer.RenderResult(command.OutOrStdout(), result, output.Mode(common.Output))
 			if err != nil {
 				problem := output.NewProblem(10, "OUTPUT_ERROR", "failed to write command output")
+				problem.Capability = capability.ID
 				problem.Cause = err
 				return problem
 			}
