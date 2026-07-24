@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	recordSchema   = "qweather.cache-record/v1"
+	recordSchema   = "qweather.cache-record/v2"
 	statusSchema   = "qweather.cache-status/v1"
 	clearSchema    = "qweather.cache-clear/v1"
 	maxRecordBytes = (qweather.DefaultMaxBodyBytes * 4 / 3) + (128 << 10)
@@ -29,15 +29,15 @@ const (
 var safeSegment = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
 
 type Record struct {
-	Schema         string                 `json:"schema"`
-	Capability     string                 `json:"capability"`
-	Outcome        string                 `json:"outcome"`
-	StoredAt       time.Time              `json:"storedAt"`
-	ExpiresAt      time.Time              `json:"expiresAt"`
-	TTLSeconds     int64                  `json:"ttlSeconds"`
-	HTTPStatus     int                    `json:"httpStatus"`
-	ResponseFamily catalog.ResponseFamily `json:"responseFamily"`
-	ProviderBody   []byte                 `json:"providerBody,omitempty"`
+	Schema              string                 `json:"schema"`
+	Capability          string                 `json:"capability"`
+	Outcome             string                 `json:"outcome"`
+	StoredAt            time.Time              `json:"storedAt"`
+	ExpiresAt           time.Time              `json:"expiresAt"`
+	PolicyMaxTTLSeconds int64                  `json:"policyMaxTtlSeconds"`
+	HTTPStatus          int                    `json:"httpStatus"`
+	ResponseFamily      catalog.ResponseFamily `json:"responseFamily"`
+	ProviderBody        []byte                 `json:"providerBody,omitempty"`
 }
 
 type Status struct {
@@ -82,16 +82,17 @@ func NewStore(root, profile string, now func() time.Time) (*Store, error) {
 }
 
 func NewRecord(capability catalog.Capability, outcome string, response qweather.Response, storedAt, expiresAt time.Time) (Record, error) {
+	policyMaxTTL := maximumTTL(capability.Cache)
 	record := Record{
 		Schema: recordSchema, Capability: capability.ID, Outcome: outcome,
-		StoredAt: storedAt.UTC(), ExpiresAt: expiresAt.UTC(), TTLSeconds: int64(capability.Cache.TTL / time.Second),
+		StoredAt: storedAt.UTC(), ExpiresAt: expiresAt.UTC(), PolicyMaxTTLSeconds: int64(policyMaxTTL / time.Second),
 		HTTPStatus: response.StatusCode, ResponseFamily: capability.Upstream.ResponseFamily,
 		ProviderBody: append([]byte(nil), response.Body...),
 	}
 	if err := validateRecord(record, capability.ID); err != nil {
 		return Record{}, err
 	}
-	if expiresAt.After(storedAt.Add(capability.Cache.TTL)) {
+	if expiresAt.After(storedAt.Add(policyMaxTTL)) {
 		return Record{}, errors.New("cache record exceeds its hard TTL")
 	}
 	return record, nil
@@ -322,7 +323,7 @@ func validateRecord(record Record, capabilityID string) error {
 	if record.Outcome != "ok" && record.Outcome != "no_data" {
 		return errors.New("cache record outcome is invalid")
 	}
-	if record.StoredAt.IsZero() || !record.ExpiresAt.After(record.StoredAt) || record.TTLSeconds <= 0 {
+	if record.StoredAt.IsZero() || !record.ExpiresAt.After(record.StoredAt) || record.PolicyMaxTTLSeconds <= 0 {
 		return errors.New("cache record timestamps are invalid")
 	}
 	if record.HTTPStatus < 200 || record.HTTPStatus >= 300 {
@@ -341,10 +342,10 @@ func validateRecord(record Record, capabilityID string) error {
 }
 
 func validateKeyRecord(record Record, key Key) error {
-	if key.ttl <= 0 || record.TTLSeconds != int64(key.ttl/time.Second) {
-		return errors.New("cache record TTL does not match its capability policy")
+	if key.policyMaxTTL <= 0 || record.PolicyMaxTTLSeconds != int64(key.policyMaxTTL/time.Second) {
+		return errors.New("cache record maximum TTL does not match its capability policy")
 	}
-	if record.ExpiresAt.After(record.StoredAt.Add(key.ttl)) {
+	if record.ExpiresAt.After(record.StoredAt.Add(key.policyMaxTTL)) {
 		return errors.New("cache record exceeds its hard TTL")
 	}
 	if record.ResponseFamily != key.family {

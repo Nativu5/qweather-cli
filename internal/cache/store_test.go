@@ -72,6 +72,34 @@ func TestStoreMissPutHitAndPrivatePermissions(t *testing.T) {
 	}
 }
 
+func TestNewRecordNamesAndStoresPolicyMaximumTTL(t *testing.T) {
+	now := time.Date(2026, 7, 23, 0, 0, 0, 0, time.UTC)
+	capability := testCapability(t, "storm.forecast")
+	record, err := NewRecord(
+		capability,
+		"ok",
+		qweather.Response{StatusCode: 200, Body: []byte(`{"code":"200","forecast":[{}]}`)},
+		now,
+		now.Add(20*time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record.Schema != "qweather.cache-record/v2" {
+		t.Fatalf("Schema = %q, want qweather.cache-record/v2", record.Schema)
+	}
+	if record.PolicyMaxTTLSeconds != int64(time.Hour/time.Second) {
+		t.Fatalf("PolicyMaxTTLSeconds = %d, want %d", record.PolicyMaxTTLSeconds, int64(time.Hour/time.Second))
+	}
+	encoded, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"policyMaxTtlSeconds":3600`) || strings.Contains(string(encoded), `"ttlSeconds"`) {
+		t.Fatalf("record TTL field is ambiguous: %s", encoded)
+	}
+}
+
 func TestStoreExpiresAndRemovesCorruptRecords(t *testing.T) {
 	store, key, record, now := cacheFixture(t)
 	if err := store.Put(context.Background(), key, record); err != nil {

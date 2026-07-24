@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -47,5 +48,40 @@ func TestExpirationUsesHardTTLAndEarlierBoundaries(t *testing.T) {
 				t.Fatalf("Expiration() = %s, want %s", got, test.want)
 			}
 		})
+	}
+}
+
+func TestPolicyForResponseSelectsStormActiveAndInactiveTTL(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		outcome string
+		body    string
+		want    time.Duration
+	}{
+		{name: "list with active storm", id: "storm.list", outcome: "ok", body: `{"storm":[{"isActive":"0"},{"isActive":"1"}]}`, want: 20 * time.Minute},
+		{name: "list with inactive storms", id: "storm.list", outcome: "ok", body: `{"storm":[{"isActive":"0"}]}`, want: time.Hour},
+		{name: "empty storm list", id: "storm.list", outcome: "ok", body: `{"storm":[]}`, want: time.Hour},
+		{name: "list missing status data", id: "storm.list", outcome: "ok", body: `{"futureField":true}`, want: 20 * time.Minute},
+		{name: "active track", id: "storm.track", outcome: "ok", body: `{"isActive":"1"}`, want: 20 * time.Minute},
+		{name: "inactive track", id: "storm.track", outcome: "ok", body: `{"isActive":"0"}`, want: time.Hour},
+		{name: "forecast present", id: "storm.forecast", outcome: "ok", body: `{"forecast":[{}]}`, want: 20 * time.Minute},
+		{name: "forecast empty", id: "storm.forecast", outcome: "ok", body: `{"forecast":[]}`, want: time.Hour},
+		{name: "inactive forecast is null", id: "storm.forecast", outcome: "ok", body: `{"code":"200","forecast":null}`, want: time.Hour},
+		{name: "storm no data", id: "storm.forecast", outcome: "no_data", body: `{}`, want: time.Hour},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			capability := testCapability(t, test.id)
+			got := PolicyForResponse(capability, test.outcome, json.RawMessage(test.body))
+			if got.TTL != test.want || got.InactiveTTL != time.Hour {
+				t.Fatalf("policy = %#v, want TTL %s", got, test.want)
+			}
+		})
+	}
+
+	ordinary := testCapability(t, "weather.city.current")
+	if got := PolicyForResponse(ordinary, "ok", json.RawMessage(`{"now":{}}`)); got != ordinary.Cache {
+		t.Fatalf("ordinary policy changed: got %#v want %#v", got, ordinary.Cache)
 	}
 }

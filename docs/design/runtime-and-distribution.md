@@ -162,7 +162,7 @@ A cache key is a SHA-256 digest of a canonical structure containing:
 
 It never contains an Authorization header, token, API KEY, private key, reversible secret hash, raw request URL, output formatting option, or Geo query text.
 
-The file adapter uses `os.UserCacheDir()`, directory mode `0700`, file mode `0600`, same-directory temporary files, and atomic rename. Each record stores the provider body, outcome, `storedAt`, `expiresAt`, TTL, and a small set of provider diagnostic timestamps. Expired entries are removed opportunistically under a bounded disk budget.
+The file adapter uses `os.UserCacheDir()`, directory mode `0700`, file mode `0600`, same-directory temporary files, and atomic rename. Each record stores the provider body, outcome, `storedAt`, `expiresAt`, the policy maximum TTL used for compatibility validation, and a small set of provider diagnostic timestamps. Expired entries are removed opportunistically under a bounded disk budget.
 
 ### Read and refresh
 
@@ -301,7 +301,7 @@ The project uses focused unit tests and a small approved smoke surface:
 - cross-compilation of the six release targets; and
 - manual or approved smoke checks for Geo plus current weather, one modern response family, and npm install/version.
 
-There is no coverage percentage target, scheduled live workflow, exhaustive platform runtime suite, or large golden-fixture corpus. Solar, Marine, and Account are smoke-tested only when a relevant change warrants an explicitly approved call.
+There is no coverage percentage target, scheduled live workflow, exhaustive platform runtime suite, or large golden-fixture corpus. The three Storm capabilities, Marine tide, and Solar forecast have no free allowance and are excluded from complete live E2E and release smoke under [ADR 0006](../adr/0006-limit-live-e2e-coverage-for-paid-only-capabilities.md). Account is also excluded from the release-smoke suite because its output is sensitive. A narrowly scoped one-off Account diagnostic requires explicit approval and protected credentials; it does not expand the release-smoke contract.
 
 ## Primary references
 

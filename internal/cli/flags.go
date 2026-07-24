@@ -2,8 +2,10 @@ package cli
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +19,14 @@ var providerPathID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
 func bindCapabilityFlags(command *cobra.Command, input *catalog.Input, flags []catalog.Flag) error {
 	for _, flag := range flags {
+		integerDefault := 0
+		if flag.Kind == catalog.FlagInt && flag.Default != "" {
+			value, err := strconv.Atoi(flag.Default)
+			if err != nil {
+				return fmt.Errorf("registry flag --%s has an invalid integer default", flag.Name)
+			}
+			integerDefault = value
+		}
 		switch flag.Name {
 		case "place":
 			command.Flags().StringVar(&input.Place, flag.Name, "", flag.Usage)
@@ -33,15 +43,15 @@ func bindCapabilityFlags(command *cobra.Command, input *catalog.Input, flags []c
 		case "poi-type":
 			command.Flags().StringVar(&input.POIType, flag.Name, "", flag.Usage)
 		case "limit":
-			command.Flags().IntVar(&input.Limit, flag.Name, 0, flag.Usage)
+			command.Flags().IntVar(&input.Limit, flag.Name, integerDefault, flag.Usage)
 		case "lang":
 			command.Flags().StringVar(&input.Language, flag.Name, "", flag.Usage)
 		case "unit":
 			command.Flags().StringVar(&input.Unit, flag.Name, "", flag.Usage)
 		case "days":
-			command.Flags().IntVar(&input.Days, flag.Name, 0, flag.Usage)
+			command.Flags().IntVar(&input.Days, flag.Name, integerDefault, flag.Usage)
 		case "hours":
-			command.Flags().IntVar(&input.Hours, flag.Name, 0, flag.Usage)
+			command.Flags().IntVar(&input.Hours, flag.Name, integerDefault, flag.Usage)
 		case "index":
 			command.Flags().IntSliceVar(&input.Indices, flag.Name, nil, flag.Usage)
 		case "all-indices":
@@ -55,17 +65,17 @@ func bindCapabilityFlags(command *cobra.Command, input *catalog.Input, flags []c
 		case "storm-id":
 			command.Flags().StringVar(&input.StormID, flag.Name, "", flag.Usage)
 		case "year":
-			command.Flags().IntVar(&input.Year, flag.Name, 0, flag.Usage)
+			command.Flags().IntVar(&input.Year, flag.Name, integerDefault, flag.Usage)
 		case "tide-station-id":
 			command.Flags().StringVar(&input.TideStationID, flag.Name, "", flag.Usage)
 		case "interval-min":
-			command.Flags().IntVar(&input.IntervalMinutes, flag.Name, 0, flag.Usage)
+			command.Flags().IntVar(&input.IntervalMinutes, flag.Name, integerDefault, flag.Usage)
 		case "include":
 			command.Flags().StringSliceVar(&input.Includes, flag.Name, nil, flag.Usage)
 		case "tilt-deg":
-			command.Flags().Float64Var(&input.TiltDegrees, flag.Name, 0, flag.Usage)
+			command.Flags().IntVar(&input.TiltDegrees, flag.Name, integerDefault, flag.Usage)
 		case "azimuth-deg":
-			command.Flags().Float64Var(&input.AzimuthDegrees, flag.Name, 0, flag.Usage)
+			command.Flags().IntVar(&input.AzimuthDegrees, flag.Name, integerDefault, flag.Usage)
 		case "at":
 			command.Flags().StringVar(&input.At, flag.Name, "", flag.Usage)
 		case "altitude-m":
@@ -130,6 +140,22 @@ func validateInvocation(capability catalog.Capability, input catalog.Input, comm
 		if err != nil || parsed.Format("2006-01-02") != input.Date {
 			return invalid(capability.ID, "--date must use a real YYYY-MM-DD date")
 		}
+		var days int
+		switch capability.ID {
+		case "marine.tide":
+			days = catalog.TideDateWindowDays
+		case "astronomy.sun.events", "astronomy.moon.events":
+			days = catalog.AstronomyDateWindowDays
+		}
+		if days > 0 {
+			first, last, _ := catalog.UTCDateWindow(time.Now(), days)
+			if parsed.Before(first) || parsed.After(last) {
+				return invalid(capability.ID, fmt.Sprintf("--date must be between %s and %s inclusive", first.Format("2006-01-02"), last.Format("2006-01-02")))
+			}
+		}
+	}
+	if capability.ID == "storm.list" && !catalog.SupportsStormYear(time.Now(), input.Year) {
+		return invalid(capability.ID, "--year must be the current or previous UTC calendar year")
 	}
 	if capability.Target == catalog.TargetAirStation && !providerPathID.MatchString(input.AirStationID) {
 		return invalid(capability.ID, "--air-station-id contains unsupported characters")
@@ -156,6 +182,11 @@ func validateInvocation(capability catalog.Capability, input catalog.Input, comm
 	}
 	if capability.ID == "account.requests.stats" && input.ProjectID != "" && input.CredentialID != "" {
 		return invalid(capability.ID, "--project-id and --credential-id are mutually exclusive")
+	}
+	if capability.ID == "astronomy.solar.position" {
+		if _, err := time.Parse(time.RFC3339, strings.TrimSpace(input.At)); err != nil {
+			return invalid(capability.ID, "--at must use RFC3339 form")
+		}
 	}
 	if capability.ID == "solar.radiation.forecast" && slices.Contains(input.Includes, "poa") {
 		if !changed["tilt-deg"] || !changed["azimuth-deg"] {
@@ -188,6 +219,9 @@ func validateFlag(capabilityID string, flag catalog.Flag, input catalog.Input, c
 		}
 	case catalog.FlagFloat:
 		value := floatValue(flag.Name, input)
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return invalid(capabilityID, fmt.Sprintf("--%s must be a finite number", flag.Name))
+		}
 		if flag.Min != nil && value < *flag.Min || flag.Max != nil && value > *flag.Max {
 			return invalid(capabilityID, fmt.Sprintf("--%s is outside the supported range", flag.Name))
 		}
@@ -272,6 +306,10 @@ func intValue(name string, input catalog.Input) int {
 		return input.Year
 	case "interval-min":
 		return input.IntervalMinutes
+	case "tilt-deg":
+		return input.TiltDegrees
+	case "azimuth-deg":
+		return input.AzimuthDegrees
 	default:
 		return 0
 	}
@@ -279,10 +317,6 @@ func intValue(name string, input catalog.Input) int {
 
 func floatValue(name string, input catalog.Input) float64 {
 	switch name {
-	case "tilt-deg":
-		return input.TiltDegrees
-	case "azimuth-deg":
-		return input.AzimuthDegrees
 	case "altitude-m":
 		return input.AltitudeMeters
 	default:

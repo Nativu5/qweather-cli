@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"math"
 	"net/url"
 	"regexp"
 	"slices"
@@ -237,6 +238,147 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 		request.Path = "/airquality/v1/stations/" + stationID
 		setLanguage(query, parameters.Language)
 
+	case "storm.list":
+		if parameters.Now.IsZero() {
+			return qweather.Request{}, internalRequestProblem(capability.ID, "request clock is unavailable")
+		}
+		if !catalog.SupportsStormYear(parameters.Now, input.Year) {
+			return qweather.Request{}, invalidRequest(capability.ID, "--year must be the current or previous UTC calendar year")
+		}
+		request.Path = "/v7/tropical/storm-list"
+		query.Set("basin", "NP")
+		query.Set("year", strconv.Itoa(input.Year))
+
+	case "storm.track", "storm.forecast":
+		stormID := strings.TrimSpace(input.StormID)
+		if stormID == "" {
+			return qweather.Request{}, invalidRequest(capability.ID, "--storm-id must not be empty")
+		}
+		if capability.ID == "storm.track" {
+			request.Path = "/v7/tropical/storm-track"
+		} else {
+			request.Path = "/v7/tropical/storm-forecast"
+		}
+		query.Set("stormid", stormID)
+
+	case "marine.tide":
+		stationID := strings.TrimSpace(input.TideStationID)
+		if stationID == "" {
+			return qweather.Request{}, invalidRequest(capability.ID, "--tide-station-id must not be empty")
+		}
+		date, problem := providerDateInWindow(input.Date, capability.ID, parameters.Now, catalog.TideDateWindowDays)
+		if problem != nil {
+			return qweather.Request{}, problem
+		}
+		request.Path = "/v7/ocean/tide"
+		query.Set("location", stationID)
+		query.Set("date", date)
+
+	case "solar.radiation.forecast":
+		coordinate, problem := requireCoordinate(parameters.Resolved, capability.ID)
+		if problem != nil {
+			return qweather.Request{}, problem
+		}
+		hours := input.Hours
+		if hours == 0 && !parameters.Changed["hours"] {
+			hours = 24
+		}
+		if hours < 1 || hours > 60 {
+			return qweather.Request{}, invalidRequest(capability.ID, "--hours is outside the supported range")
+		}
+		interval := input.IntervalMinutes
+		if interval == 0 && !parameters.Changed["interval-min"] {
+			interval = 60
+		}
+		if !slices.Contains([]int{15, 30, 60}, interval) {
+			return qweather.Request{}, invalidRequest(capability.ID, "--interval-min has an unsupported value")
+		}
+		extras := append([]string(nil), input.Includes...)
+		for _, extra := range extras {
+			if !slices.Contains([]string{"weather", "poa"}, extra) {
+				return qweather.Request{}, invalidRequest(capability.ID, "--include contains an unsupported value")
+			}
+		}
+		if slices.Contains(extras, "poa") && (!parameters.Changed["tilt-deg"] || !parameters.Changed["azimuth-deg"]) {
+			return qweather.Request{}, invalidRequest(capability.ID, "--include poa requires --tilt-deg and --azimuth-deg")
+		}
+		if parameters.Changed["tilt-deg"] && (input.TiltDegrees < 0 || input.TiltDegrees > 90) {
+			return qweather.Request{}, invalidRequest(capability.ID, "--tilt-deg is outside the supported range")
+		}
+		if parameters.Changed["azimuth-deg"] && (input.AzimuthDegrees < 0 || input.AzimuthDegrees > 359) {
+			return qweather.Request{}, invalidRequest(capability.ID, "--azimuth-deg is outside the supported range")
+		}
+		request.Path = modernCoordinatePath("/solarradiation/v1/forecast", coordinate)
+		query.Set("hours", strconv.Itoa(hours))
+		query.Set("interval", strconv.Itoa(interval))
+		if len(extras) > 0 {
+			sort.Strings(extras)
+			query.Set("extra", strings.Join(extras, ","))
+		}
+		if parameters.Changed["tilt-deg"] {
+			query.Set("tilt", strconv.Itoa(input.TiltDegrees))
+		}
+		if parameters.Changed["azimuth-deg"] {
+			query.Set("azimuth", strconv.Itoa(input.AzimuthDegrees))
+		}
+		if input.LocalTime {
+			query.Set("localTime", "true")
+		}
+
+	case "astronomy.sun.events", "astronomy.moon.events":
+		location, problem := requirePlace(parameters.Resolved, capability.ID)
+		if problem != nil {
+			return qweather.Request{}, problem
+		}
+		date, problem := providerDateInWindow(input.Date, capability.ID, parameters.Now, catalog.AstronomyDateWindowDays)
+		if problem != nil {
+			return qweather.Request{}, problem
+		}
+		if capability.ID == "astronomy.sun.events" {
+			request.Path = "/v7/astronomy/sun"
+		} else {
+			request.Path = "/v7/astronomy/moon"
+			setLanguage(query, parameters.Language)
+		}
+		query.Set("location", location)
+		query.Set("date", date)
+
+	case "astronomy.solar.position":
+		coordinate, problem := requireCoordinate(parameters.Resolved, capability.ID)
+		if problem != nil {
+			return qweather.Request{}, problem
+		}
+		date, clock, timezone, problem := providerSolarTimestamp(input.At, capability.ID)
+		if problem != nil {
+			return qweather.Request{}, problem
+		}
+		if math.IsNaN(input.AltitudeMeters) || math.IsInf(input.AltitudeMeters, 0) || input.AltitudeMeters < -500 || input.AltitudeMeters > 9000 {
+			return qweather.Request{}, invalidRequest(capability.ID, "--altitude-m is outside the supported range")
+		}
+		request.Path = "/v7/astronomy/solar-elevation-angle"
+		query.Set("location", coordinate.ProviderQuery())
+		query.Set("date", date)
+		query.Set("time", clock)
+		query.Set("tz", timezone)
+		query.Set("alt", strconv.FormatFloat(input.AltitudeMeters, 'f', -1, 64))
+
+	case "account.finance.summary":
+		request.Path = "/finance/v1/summary"
+
+	case "account.requests.stats":
+		projectID := strings.TrimSpace(input.ProjectID)
+		credentialID := strings.TrimSpace(input.CredentialID)
+		if projectID != "" && credentialID != "" {
+			return qweather.Request{}, invalidRequest(capability.ID, "--project-id and --credential-id are mutually exclusive")
+		}
+		request.Path = "/metrics/v1/stats"
+		if projectID != "" {
+			query.Set("project", projectID)
+		}
+		if credentialID != "" {
+			query.Set("cred", credentialID)
+		}
+
 	default:
 		problem := output.NewProblem(10, "CAPABILITY_NOT_IMPLEMENTED", "capability request mapping is not implemented")
 		problem.Capability = capability.ID
@@ -332,6 +474,34 @@ func providerDate(value, capabilityID string) (string, *output.Problem) {
 	return parsed.Format("20060102"), nil
 }
 
+func providerDateInWindow(value, capabilityID string, now time.Time, days int) (string, *output.Problem) {
+	date, problem := providerDate(value, capabilityID)
+	if problem != nil {
+		return "", problem
+	}
+	if now.IsZero() {
+		return "", internalRequestProblem(capabilityID, "request clock is unavailable")
+	}
+	parsed, _ := time.Parse("20060102", date)
+	today, last, ok := catalog.UTCDateWindow(now, days)
+	if !ok {
+		return "", internalRequestProblem(capabilityID, "request date window is unavailable")
+	}
+	if parsed.Before(today) || parsed.After(last) {
+		return "", invalidRequest(capabilityID, fmt.Sprintf("--date must be between %s and %s inclusive", today.Format("2006-01-02"), last.Format("2006-01-02")))
+	}
+	return date, nil
+}
+
+func providerSolarTimestamp(value, capabilityID string) (string, string, string, *output.Problem) {
+	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
+	if err != nil {
+		return "", "", "", invalidRequest(capabilityID, "--at must use RFC3339 form")
+	}
+	timezone := strings.TrimPrefix(parsed.Format("-0700"), "+")
+	return parsed.Format("20060102"), parsed.Format("1504"), timezone, nil
+}
+
 func providerIndices(input catalog.Input, capabilityID string) (string, *output.Problem) {
 	if input.AllIndices == (len(input.Indices) > 0) {
 		return "", invalidRequest(capabilityID, "exactly one of --index or --all-indices is required")
@@ -384,6 +554,12 @@ func setLimit(query url.Values, limit int, capabilityID string) *output.Problem 
 
 func invalidRequest(capabilityID, message string) *output.Problem {
 	problem := output.NewProblem(2, "INVALID_INVOCATION", message)
+	problem.Capability = capabilityID
+	return problem
+}
+
+func internalRequestProblem(capabilityID, message string) *output.Problem {
+	problem := output.NewProblem(10, "INTERNAL_ERROR", message)
 	problem.Capability = capabilityID
 	return problem
 }

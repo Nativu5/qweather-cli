@@ -66,6 +66,7 @@ func capability(t *testing.T, id string) catalog.Capability {
 }
 
 func TestRuntimeBuildsStableResultFromScriptedProvider(t *testing.T) {
+	now := time.Date(2026, 7, 24, 3, 30, 0, 0, time.UTC)
 	doer := &scriptedDoer{response: qweather.Response{
 		StatusCode: 200,
 		Body:       []byte(`{"code":"200","now":{"temp":"20","unknown":true},"refer":{"sources":["QWeather"]}}`),
@@ -76,9 +77,13 @@ func TestRuntimeBuildsStableResultFromScriptedProvider(t *testing.T) {
 		},
 		func(config.Effective) (qweather.Doer, error) { return doer, nil },
 		func(capability catalog.Capability, parameters RequestParameters) (qweather.Request, *output.Problem) {
+			if !parameters.Now.Equal(now) {
+				t.Fatalf("request clock = %s, want %s", parameters.Now, now)
+			}
 			return qweather.Request{CapabilityID: capability.ID, Path: capability.Upstream.PathTemplate, Query: url.Values{"location": {parameters.Resolved.ID}}}, nil
 		},
 	)
+	runtime.now = func() time.Time { return now }
 	result, problem := runtime.Run(context.Background(), cli.Invocation{
 		Capability: capability(t, "weather.city.current"),
 		Common:     cli.CommonOptions{Timeout: time.Second},
@@ -244,20 +249,91 @@ func TestRuntimeMapsAmbiguousAndMissingPlaces(t *testing.T) {
 }
 
 func TestProductGatePrecedesConfigurationAndNetwork(t *testing.T) {
-	loads := 0
-	runtime := New(
-		func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
-			loads++
-			return config.Effective{}, config.Diagnostics{}, errors.New("must not run")
-		}, nil, nil,
-	)
-	_, problem := runtime.Run(context.Background(), cli.Invocation{
-		Capability: capability(t, "solar.radiation.forecast"),
-		Input:      catalog.Input{Place: "Beijing"},
-		Common:     cli.CommonOptions{Timeout: time.Second},
-	})
-	if problem == nil || problem.ExitCode != 4 || problem.Code != "PRODUCT_GATE_REQUIRED" || loads != 0 {
-		t.Fatalf("problem=%#v loads=%d", problem, loads)
+	ids := []string{
+		"storm.list", "storm.track", "storm.forecast", "marine.tide",
+		"solar.radiation.forecast", "account.finance.summary", "account.requests.stats",
+	}
+	for _, id := range ids {
+		t.Run(id, func(t *testing.T) {
+			loads := 0
+			clients := 0
+			runtime := New(
+				func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+					loads++
+					return config.Effective{}, config.Diagnostics{}, errors.New("must not run")
+				},
+				func(config.Effective) (qweather.Doer, error) {
+					clients++
+					return &scriptedDoer{}, nil
+				}, nil,
+			)
+			_, problem := runtime.Run(context.Background(), cli.Invocation{
+				Capability: capability(t, id),
+				Input:      catalog.Input{Place: "Beijing"},
+				Common:     cli.CommonOptions{Timeout: time.Second},
+			})
+			if problem == nil || problem.ExitCode != 4 || problem.Code != "PRODUCT_GATE_REQUIRED" || loads != 0 || clients != 0 {
+				t.Fatalf("problem=%#v loads=%d clients=%d", problem, loads, clients)
+			}
+		})
+	}
+}
+
+func TestRuntimeExecutesIssueSevenResponseFamiliesWithAcknowledgement(t *testing.T) {
+	tests := []struct {
+		name        string
+		id          string
+		input       catalog.Input
+		body        string
+		path        string
+		family      string
+		attribution int
+	}{
+		{
+			name: "marine legacy", id: "storm.track",
+			input: catalog.Input{StormID: "NP_2024", AllowProduct: "marine"},
+			body:  `{"code":"200","isActive":"1","futureField":{"kept":true},"refer":{"sources":["QWeather"]}}`,
+			path:  "/v7/tropical/storm-track", family: "legacy-v1", attribution: 1,
+		},
+		{
+			name: "solar modern", id: "solar.radiation.forecast",
+			input: catalog.Input{Coordinate: "geo:39.9,116.4", AllowProduct: "solar"},
+			body:  `{"metadata":{"attributions":[{"name":"QWeather"}]},"forecasts":[],"futureField":{"kept":true}}`,
+			path:  "/solarradiation/v1/forecast/39.9/116.4", family: "modern-v1", attribution: 1,
+		},
+		{
+			name: "account console", id: "account.finance.summary",
+			input: catalog.Input{AllowSensitive: "account"},
+			body:  `{"metadata":{"attributions":[{"name":"QWeather"}]},"balance":10,"futureField":{"kept":true}}`,
+			path:  "/finance/v1/summary", family: "console-v1", attribution: 1,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			effective := testEffective(t)
+			effective.Cache.Enabled = false
+			doer := &scriptedDoer{response: qweather.Response{StatusCode: 200, Body: []byte(test.body)}}
+			runtime := New(
+				func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+					return effective, config.Diagnostics{}, nil
+				},
+				func(config.Effective) (qweather.Doer, error) { return doer, nil },
+				nil,
+			)
+			result, problem := runtime.Run(context.Background(), cli.Invocation{
+				Capability: capability(t, test.id), Input: test.input,
+				Common: cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+			})
+			if problem != nil {
+				t.Fatal(problem)
+			}
+			if len(doer.requests) != 1 || doer.requests[0].Path != test.path {
+				t.Fatalf("requests = %#v", doer.requests)
+			}
+			if result.Upstream.ResponseFamily != test.family || len(result.Attribution) != test.attribution || string(result.ProviderBody) != test.body || !strings.Contains(string(result.Data), `"futureField"`) {
+				t.Fatalf("result = %#v", result)
+			}
+		})
 	}
 }
 
@@ -333,6 +409,63 @@ func TestRuntimeCacheHitRefreshAndNoCache(t *testing.T) {
 	afterBypass, problem := runtime.Run(context.Background(), invocation)
 	if problem != nil || afterBypass.Cache.Status != "hit" || len(doer.requests) != 3 || !strings.Contains(string(afterBypass.Data), `"21"`) {
 		t.Fatalf("afterBypass=%#v problem=%v requests=%d", afterBypass, problem, len(doer.requests))
+	}
+}
+
+func TestRuntimeUsesStormResponseTTL(t *testing.T) {
+	now := time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name      string
+		body      string
+		ttl       time.Duration
+		second    string
+		wantCalls int
+	}{
+		{name: "active", body: `{"code":"200","isActive":"1"}`, ttl: 20 * time.Minute, second: "miss", wantCalls: 2},
+		{name: "inactive", body: `{"code":"200","isActive":"0"}`, ttl: time.Hour, second: "hit", wantCalls: 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			effective := testEffective(t)
+			effective.Cache = config.CacheSettings{Enabled: true, Directory: filepath.Join(t.TempDir(), "cache")}
+			doer := &scriptedDoer{response: qweather.Response{StatusCode: 200, Body: []byte(test.body)}}
+			runtime := NewWithCache(
+				func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+					return effective, config.Diagnostics{}, nil
+				},
+				func(config.Effective) (qweather.Doer, error) { return doer, nil },
+				func(effective config.Effective) (CacheStore, error) {
+					return cachepkg.NewStore(effective.Cache.Directory, effective.Profile, func() time.Time { return now })
+				},
+				nil,
+			)
+			runtime.now = func() time.Time { return now }
+			result, problem := runtime.Run(context.Background(), cli.Invocation{
+				Capability: capability(t, "storm.track"),
+				Input:      catalog.Input{StormID: "NP_2024", AllowProduct: "marine"},
+				Common:     cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+			})
+			if problem != nil {
+				t.Fatal(problem)
+			}
+			want := now.Add(test.ttl).Format(time.RFC3339)
+			if result.Cache.Status != "miss" || result.Cache.ExpiresAt != want || len(doer.requests) != 1 {
+				t.Fatalf("cache=%#v requests=%d want expiry=%s", result.Cache, len(doer.requests), want)
+			}
+			now = now.Add(30 * time.Minute)
+			second, problem := runtime.Run(context.Background(), cli.Invocation{
+				Capability: capability(t, "storm.track"),
+				Input:      catalog.Input{StormID: "NP_2024", AllowProduct: "marine"},
+				Common:     cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+			})
+			if problem != nil {
+				t.Fatal(problem)
+			}
+			if second.Cache.Status != test.second || len(doer.requests) != test.wantCalls {
+				t.Fatalf("second cache=%#v requests=%d", second.Cache, len(doer.requests))
+			}
+			now = time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC)
+		})
 	}
 }
 

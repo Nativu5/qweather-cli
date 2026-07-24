@@ -62,5 +62,9 @@ export QWEATHER_E2E_BINARY="$PWD/qweather"
 go test -tags=e2e ./tests/e2e -run '^TestReleaseSmoke$' -count=1
 ```
 
-Do not add Marine, Solar, Account, retries, parallelism, or broader sampling to
-this suite without a focused Issue and an explicit quota/product-policy review.
+The paid-only Storm, Marine tide, and Solar forecast capabilities are excluded
+from complete live E2E and release smoke by
+[ADR 0006](../adr/0006-limit-live-e2e-coverage-for-paid-only-capabilities.md).
+Account is also excluded from this suite because its output is sensitive. Do
+not add Account, retries, parallelism, or broader sampling without a focused
+Issue and an explicit quota, product-policy, and security review.

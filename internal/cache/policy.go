@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -18,6 +20,72 @@ func Enabled(capability catalog.Capability, globalEnabled, sensitiveEnabled bool
 		return true
 	case catalog.CacheSensitive:
 		return sensitiveEnabled
+	default:
+		return false
+	}
+}
+
+// PolicyForResponse selects a response-dependent TTL without weakening the
+// conservative default when the provider omits or changes its status fields.
+func PolicyForResponse(capability catalog.Capability, outcome string, data json.RawMessage) catalog.CachePolicy {
+	policy := capability.Cache
+	if policy.InactiveTTL <= 0 {
+		return policy
+	}
+	if outcome == "no_data" {
+		policy.TTL = policy.InactiveTTL
+		return policy
+	}
+	if outcome != "ok" || !inactiveStormResponse(capability.ID, data) {
+		return policy
+	}
+	policy.TTL = policy.InactiveTTL
+	return policy
+}
+
+func maximumTTL(policy catalog.CachePolicy) time.Duration {
+	if policy.InactiveTTL > policy.TTL {
+		return policy.InactiveTTL
+	}
+	return policy.TTL
+}
+
+func inactiveStormResponse(capabilityID string, data json.RawMessage) bool {
+	var object map[string]json.RawMessage
+	if json.Unmarshal(data, &object) != nil {
+		return false
+	}
+	switch capabilityID {
+	case "storm.list":
+		raw, ok := object["storm"]
+		if !ok || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return false
+		}
+		var storms []struct {
+			IsActive string `json:"isActive"`
+		}
+		if json.Unmarshal(raw, &storms) != nil {
+			return false
+		}
+		for _, storm := range storms {
+			if storm.IsActive != "0" {
+				return false
+			}
+		}
+		return true
+	case "storm.track":
+		var isActive string
+		return json.Unmarshal(object["isActive"], &isActive) == nil && isActive == "0"
+	case "storm.forecast":
+		raw, ok := object["forecast"]
+		if !ok {
+			return false
+		}
+		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return true
+		}
+		var forecast []json.RawMessage
+		return json.Unmarshal(raw, &forecast) == nil && len(forecast) == 0
 	default:
 		return false
 	}

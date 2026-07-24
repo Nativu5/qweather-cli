@@ -144,8 +144,8 @@ type Input struct {
 	TideStationID   string
 	IntervalMinutes int
 	Includes        []string
-	TiltDegrees     float64
-	AzimuthDegrees  float64
+	TiltDegrees     int
+	AzimuthDegrees  int
 	At              string
 	AltitudeMeters  float64
 	ProjectID       string

@@ -71,6 +71,10 @@ func records() []Capability {
 	allowMarine := stringFlag("allow-product", "acknowledge a billed product", false, "marine")
 	allowSolar := stringFlag("allow-product", "acknowledge a billed product", false, "solar")
 	allowAccount := stringFlag("allow-sensitive-output", "acknowledge sensitive account output", false, "account")
+	solarHours := rangedIntFlag("hours", "forecast length in hours", false, 1, 60)
+	solarHours.Default = "24"
+	solarInterval := intFlag("interval-min", "forecast interval in minutes", false, 15, 30, 60)
+	solarInterval.Default = "60"
 
 	return []Capability{
 		current(
@@ -210,7 +214,7 @@ func records() []Capability {
 		current(
 			"storm.list", "storm list", "storm", "List tropical storms",
 			"https://dev.qweather.com/docs/api/tropical-cyclone/storm-list/", TargetNone,
-			[]Flag{rangedIntFlag("year", "storm year", true, 2018, 2100), allowMarine},
+			[]Flag{intFlag("year", "current or previous UTC calendar year", true), allowMarine},
 			upstream("/v7/tropical/storm-list", ResponseLegacyV1), BillingMarine, GateMarine,
 			CachePolicy{Mode: CacheEnabled, TTL: 20 * time.Minute, InactiveTTL: time.Hour, Boundary: BoundaryNone, Evidence: evidenceOfficial},
 		),
@@ -231,7 +235,7 @@ func records() []Capability {
 		current(
 			"marine.tide", "marine tide", "marine", "Get tide forecasts for a station",
 			"https://dev.qweather.com/docs/api/ocean/tide/", TargetTideStation,
-			[]Flag{stringFlag("tide-station-id", "QWeather tide station ID", true), stringFlag("date", "date in YYYY-MM-DD form", true), allowMarine},
+			[]Flag{stringFlag("tide-station-id", "QWeather tide station ID", true), stringFlag("date", "UTC date from today through 9 days ahead in YYYY-MM-DD form", true), allowMarine},
 			upstream("/v7/ocean/tide", ResponseLegacyV1), BillingMarine, GateMarine,
 			policy(CacheEnabled, 8*time.Hour, BoundaryNone, evidenceOfficial),
 		),
@@ -239,11 +243,11 @@ func records() []Capability {
 			"solar.radiation.forecast", "solar forecast", "solar", "Get solar-radiation forecast",
 			"https://dev.qweather.com/docs/api/solar-radiation/solar-radiation-forecast/", TargetCoordinate,
 			appendFlags(placeFlags(false, false),
-				rangedIntFlag("hours", "forecast length in hours", false, 1, 60),
-				intFlag("interval-min", "forecast interval in minutes", false, 15, 30, 60),
+				solarHours,
+				solarInterval,
 				stringSliceFlag("include", "optional dataset; repeatable", "weather", "poa"),
-				floatFlag("tilt-deg", "panel tilt in degrees", false, 0, 90),
-				floatFlag("azimuth-deg", "panel azimuth in degrees", false, 0, 359),
+				rangedIntFlag("tilt-deg", "panel tilt in degrees", false, 0, 90),
+				rangedIntFlag("azimuth-deg", "panel azimuth in degrees", false, 0, 359),
 				boolFlag("local-time", "return local timestamps"), allowSolar,
 			),
 			upstream("/solarradiation/v1/forecast/{latitude}/{longitude}", ResponseModernV1),
@@ -252,14 +256,14 @@ func records() []Capability {
 		current(
 			"astronomy.sun.events", "astronomy sun", "astronomy", "Get sunrise and sunset",
 			"https://dev.qweather.com/docs/api/astronomy/sunrise-sunset/", TargetPlace,
-			appendFlags(placeFlags(false, false), stringFlag("date", "date in YYYY-MM-DD form", true)),
+			appendFlags(placeFlags(false, false), stringFlag("date", "UTC date from today through 59 days ahead in YYYY-MM-DD form", true)),
 			upstream("/v7/astronomy/sun", ResponseLegacyV1), BillingBasic, GateNone,
 			policy(CacheEnabled, 24*time.Hour, BoundaryNone, evidenceConservative),
 		),
 		current(
 			"astronomy.moon.events", "astronomy moon", "astronomy", "Get moonrise, moonset, and phases",
 			"https://dev.qweather.com/docs/api/astronomy/moon-and-moon-phase/", TargetPlace,
-			appendFlags(placeFlags(true, false), stringFlag("date", "date in YYYY-MM-DD form", true)),
+			appendFlags(placeFlags(true, false), stringFlag("date", "UTC date from today through 59 days ahead in YYYY-MM-DD form", true)),
 			upstream("/v7/astronomy/moon", ResponseLegacyV1), BillingBasic, GateNone,
 			policy(CacheEnabled, 24*time.Hour, BoundaryNone, evidenceConservative),
 		),
