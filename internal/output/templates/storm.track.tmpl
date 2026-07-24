@@ -1,0 +1,53 @@
+{{- section "Storm track" }}
+{{- requiredField "Provider code" "code" "" }}
+{{- field "Updated at" "updateTime" "" }}
+{{- field "Forecast link" "fxLink" "" }}
+{{- requiredField "Active" "isActive" "" }}
+{{- if optionalObject "now" }}
+{{- section "Current position" }}
+{{- requiredField "Published at" "now.pubTime" "" }}
+{{- requiredField "Latitude" "now.lat" "" }}
+{{- requiredField "Longitude" "now.lon" "" }}
+{{- requiredField "Type" "now.type" "" }}
+{{- field "Center pressure" "now.pressure" "" }}
+{{- field "Wind speed" "now.windSpeed" "" }}
+{{- field "Movement speed" "now.moveSpeed" "" }}
+{{- field "Movement direction" "now.moveDir" "" }}
+{{- field "Movement azimuth" "now.move360" (unit "angle") }}
+{{- field "Force 7 wind radius northeast" "now.windRadius30.neRadius" "" }}
+{{- field "Force 7 wind radius southeast" "now.windRadius30.seRadius" "" }}
+{{- field "Force 7 wind radius southwest" "now.windRadius30.swRadius" "" }}
+{{- field "Force 7 wind radius northwest" "now.windRadius30.nwRadius" "" }}
+{{- field "Force 10 wind radius northeast" "now.windRadius50.neRadius" "" }}
+{{- field "Force 10 wind radius southeast" "now.windRadius50.seRadius" "" }}
+{{- field "Force 10 wind radius southwest" "now.windRadius50.swRadius" "" }}
+{{- field "Force 10 wind radius northwest" "now.windRadius50.nwRadius" "" }}
+{{- field "Force 12 wind radius northeast" "now.windRadius64.neRadius" "" }}
+{{- field "Force 12 wind radius southeast" "now.windRadius64.seRadius" "" }}
+{{- field "Force 12 wind radius southwest" "now.windRadius64.swRadius" "" }}
+{{- field "Force 12 wind radius northwest" "now.windRadius64.nwRadius" "" }}
+{{- end }}
+{{- range $point := items "track" }}
+{{- section (printf "Track point %d" (inc $point)) }}
+{{- requiredField "Time" (path "track" $point "time") "" }}
+{{- requiredField "Latitude" (path "track" $point "lat") "" }}
+{{- requiredField "Longitude" (path "track" $point "lon") "" }}
+{{- requiredField "Type" (path "track" $point "type") "" }}
+{{- field "Center pressure" (path "track" $point "pressure") "" }}
+{{- field "Wind speed" (path "track" $point "windSpeed") "" }}
+{{- field "Movement speed" (path "track" $point "moveSpeed") "" }}
+{{- field "Movement direction" (path "track" $point "moveDir") "" }}
+{{- field "Movement azimuth" (path "track" $point "move360") (unit "angle") }}
+{{- field "Force 7 wind radius northeast" (path "track" $point "windRadius30.neRadius") "" }}
+{{- field "Force 7 wind radius southeast" (path "track" $point "windRadius30.seRadius") "" }}
+{{- field "Force 7 wind radius southwest" (path "track" $point "windRadius30.swRadius") "" }}
+{{- field "Force 7 wind radius northwest" (path "track" $point "windRadius30.nwRadius") "" }}
+{{- field "Force 10 wind radius northeast" (path "track" $point "windRadius50.neRadius") "" }}
+{{- field "Force 10 wind radius southeast" (path "track" $point "windRadius50.seRadius") "" }}
+{{- field "Force 10 wind radius southwest" (path "track" $point "windRadius50.swRadius") "" }}
+{{- field "Force 10 wind radius northwest" (path "track" $point "windRadius50.nwRadius") "" }}
+{{- field "Force 12 wind radius northeast" (path "track" $point "windRadius64.neRadius") "" }}
+{{- field "Force 12 wind radius southeast" (path "track" $point "windRadius64.seRadius") "" }}
+{{- field "Force 12 wind radius southwest" (path "track" $point "windRadius64.swRadius") "" }}
+{{- field "Force 12 wind radius northwest" (path "track" $point "windRadius64.nwRadius") "" }}
+{{- end -}}

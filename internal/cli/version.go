@@ -8,20 +8,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newVersionCommand(info buildinfo.Info) *cobra.Command {
-	var jsonOutput bool
-	command := &cobra.Command{
+func newVersionCommand(info buildinfo.Info, common *CommonOptions) *cobra.Command {
+	return &cobra.Command{
 		Use:   "version",
 		Short: "Show build and registry version information",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			if jsonOutput {
-				return output.WriteJSON(command.OutOrStdout(), info, false)
+			if problem := validateLocalOutput(*common); problem != nil {
+				return problem
+			}
+			if common.Output == string(output.ModeJSON) {
+				return renderLocalResult(command, info, *common)
 			}
 			_, err := fmt.Fprintf(command.OutOrStdout(), "qweather %s\n", info.Version)
-			return err
+			return outputFailure(err)
 		},
 	}
-	command.Flags().BoolVar(&jsonOutput, "json", false, "emit machine-readable version information")
-	return command
 }

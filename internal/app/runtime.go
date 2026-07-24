@@ -116,6 +116,7 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 	if problem != nil {
 		return nil, problem
 	}
+	presentationUnit := providerResponseUnit(invocation.Capability, effective.Unit)
 	operations = append(operations, invocation.Capability.ID)
 	cacheMetadata := output.Cache{Status: "disabled", UpstreamRequested: true}
 	cacheEnabled := cachepkg.Enabled(invocation.Capability, effective.Cache.Enabled, effective.Cache.Sensitive) && !invocation.Common.NoCache
@@ -154,7 +155,7 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 						ExpiresAt: record.ExpiresAt.UTC().Format(time.RFC3339), AgeSeconds: int64(age),
 						UpstreamRequested: false,
 					}
-					return buildResult(invocation.Capability, resolved, operations, response, classified, cacheMetadata), nil
+					return buildResult(invocation.Capability, resolved, operations, response, classified, cacheMetadata, presentationUnit), nil
 				}
 				_ = store.Delete(requestContext, cacheKey)
 			}
@@ -184,7 +185,21 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 			cacheMetadata.ExpiresAt = expiresAt.Format(time.RFC3339)
 		}
 	}
-	return buildResult(invocation.Capability, resolved, operations, response, classified, cacheMetadata), nil
+	return buildResult(invocation.Capability, resolved, operations, response, classified, cacheMetadata, presentationUnit), nil
+}
+
+func providerResponseUnit(capability catalog.Capability, effectiveUnit string) string {
+	for _, flag := range capability.Flags {
+		if flag.Name == "unit" {
+			return effectiveUnit
+		}
+	}
+	switch capability.ID {
+	case "weather.city.current", "weather.city.forecast.daily", "weather.city.forecast.hourly", "weather.precipitation.minutely":
+		return "metric"
+	default:
+		return ""
+	}
 }
 
 func validateEffectiveCapability(capability catalog.Capability, effective config.Effective) *output.Problem {
@@ -194,7 +209,7 @@ func validateEffectiveCapability(capability catalog.Capability, effective config
 	return nil
 }
 
-func buildResult(capability catalog.Capability, resolved place.Resolved, operations []string, response qweather.Response, classified qweather.Classified, cacheMetadata output.Cache) *output.Result {
+func buildResult(capability catalog.Capability, resolved place.Resolved, operations []string, response qweather.Response, classified qweather.Classified, cacheMetadata output.Cache, unit string) *output.Result {
 	result := &output.Result{
 		Schema:       output.ResultSchema,
 		Outcome:      classified.Outcome,
@@ -206,6 +221,7 @@ func buildResult(capability catalog.Capability, resolved place.Resolved, operati
 		Attribution:  classified.Attribution,
 		Data:         classified.Data,
 		ProviderBody: append([]byte(nil), response.Body...),
+		Unit:         unit,
 	}
 	if isPlaceTarget(capability.Target) {
 		result.ResolvedPlace = resolved.Output()
@@ -252,7 +268,7 @@ func (r *Runtime) resolvePlace(ctx context.Context, client qweather.Doer, invoca
 		if err != nil {
 			return nil, qweather.ProblemForError(err, invocation.Capability.ID)
 		}
-		classified, problem := qweather.Classify(catalog.ResponseLegacyV1, response, invocation.Capability.ID)
+		classified, problem := qweather.Classify(catalog.ResponseCodeReferV1, response, invocation.Capability.ID)
 		if problem != nil {
 			return nil, problem
 		}

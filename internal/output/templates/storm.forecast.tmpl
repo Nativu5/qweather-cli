@@ -1,0 +1,16 @@
+{{- section "Storm forecast" }}
+{{- requiredField "Provider code" "code" "" }}
+{{- field "Updated at" "updateTime" "" }}
+{{- field "Forecast link" "fxLink" "" }}
+{{- range $point := items "forecast" }}
+{{- section (printf "Forecast point %d" (inc $point)) }}
+{{- requiredField "Forecast time" (path "forecast" $point "fxTime") "" }}
+{{- requiredField "Latitude" (path "forecast" $point "lat") "" }}
+{{- requiredField "Longitude" (path "forecast" $point "lon") "" }}
+{{- requiredField "Type" (path "forecast" $point "type") "" }}
+{{- field "Center pressure" (path "forecast" $point "pressure") "" }}
+{{- field "Wind speed" (path "forecast" $point "windSpeed") "" }}
+{{- field "Movement speed" (path "forecast" $point "moveSpeed") "" }}
+{{- field "Movement direction" (path "forecast" $point "moveDir") "" }}
+{{- field "Movement azimuth" (path "forecast" $point "move360") (unit "angle") }}
+{{- end -}}

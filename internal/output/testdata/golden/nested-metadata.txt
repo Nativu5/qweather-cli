@@ -1,0 +1,129 @@
+Capability: air.current
+Cache:
+  Status: miss
+  Upstream requested: true
+Operations:
+  - air.current
+Air quality index 1:
+  Name: AQI (US)
+  Code: us-epa
+  AQI: 46
+  AQI display: 46
+  Level: 1
+  Category: Good
+  Primary pollutant: PM 2.5
+  Primary pollutant code: pm2p5
+  Primary pollutant full name: Fine particulate matter (<2.5µm)
+  Health effect: No health effects.
+  General advice: Everyone can continue their outdoor activities normally.
+  Sensitive population advice: Everyone can continue their outdoor activities normally.
+Air quality index 2:
+  Name: QAQI
+  Code: qaqi
+  AQI: 0.9
+  AQI display: 0.9
+  Level: 1
+  Category: Excellent
+  Primary pollutant: PM 2.5
+  Primary pollutant code: pm2p5
+  Primary pollutant full name: Fine particulate matter (<2.5µm)
+  Health effect: No health implications.
+  General advice: Enjoy your outdoor activities.
+  Sensitive population advice: Enjoy your outdoor activities.
+Pollutant 1:
+  Name: PM 2.5
+  Code: pm2p5
+  Full name: Fine particulate matter (<2.5µm)
+  Concentration: 11.0
+  Concentration unit: μg/m3
+Pollutant 1 / sub-index 1:
+  Code: us-epa
+  AQI: 46
+  AQI display: 46
+Pollutant 1 / sub-index 2:
+  Code: qaqi
+  AQI: 0.9
+  AQI display: 0.9
+Pollutant 2:
+  Name: PM 10
+  Code: pm10
+  Full name: Inhalable particulate matter (<10µm)
+  Concentration: 12.0
+  Concentration unit: μg/m3
+Pollutant 2 / sub-index 1:
+  Code: us-epa
+  AQI: 12
+  AQI display: 12
+Pollutant 2 / sub-index 2:
+  Code: qaqi
+  AQI: 0.5
+  AQI display: 0.5
+Pollutant 3:
+  Name: NO2
+  Code: no2
+  Full name: Nitrogen dioxide
+  Concentration: 6.77
+  Concentration unit: ppb
+Pollutant 3 / sub-index 1:
+  Code: us-epa
+  AQI: 7
+  AQI display: 7
+Pollutant 3 / sub-index 2:
+  Code: qaqi
+  AQI: 0.1
+  AQI display: 0.1
+Pollutant 4:
+  Name: O3
+  Code: o3
+  Full name: Ozone
+  Concentration: 0.02
+  Concentration unit: ppb
+Pollutant 4 / sub-index 1:
+  Code: us-epa
+  AQI: 21
+  AQI display: 21
+Pollutant 4 / sub-index 2:
+  Code: qaqi
+  AQI: 0.2
+  AQI display: 0.2
+Pollutant 5:
+  Name: CO
+  Code: co
+  Full name: Carbon monoxide
+  Concentration: 0.25
+  Concentration unit: ppm
+Pollutant 5 / sub-index 1:
+  Code: us-epa
+  AQI: 3
+  AQI display: 3
+Pollutant 5 / sub-index 2:
+  Code: qaqi
+  AQI: 0.1
+  AQI display: 0.1
+Monitoring station 1:
+  Name: North Holywood
+  ID: P51762
+Monitoring station 2:
+  Name: Pasadena
+  ID: P58056
+Monitoring station 3:
+  Name: Los Angeles - N. Main Street
+  ID: P57327
+Additional fields:
+  indexes:
+    [0]:
+      color:
+        alpha: 1
+        blue: 0
+        green: 228
+        red: 0
+    [1]:
+      color:
+        alpha: 1
+        blue: 230
+        green: 240
+        red: 80
+  metadata:
+    tag: d75a323239766b831889e8020cba5aca9b90fca5080a1175c3487fd8acb06e84
+Attribution:
+  [0]: https://developer.qweather.com/attribution.html

@@ -1,0 +1,17 @@
+{{- section "Top cities" -}}
+{{- range $index := items "topCityList" -}}
+City {{ inc $index }}:
+{{ requiredField "Name" (path "topCityList" $index "name") "" -}}
+{{- requiredField "ID" (path "topCityList" $index "id") "" -}}
+{{- field "Type" (path "topCityList" $index "type") "" -}}
+{{- field "Administrative area 2" (path "topCityList" $index "adm2") "" -}}
+{{- field "Administrative area 1" (path "topCityList" $index "adm1") "" -}}
+{{- field "Country" (path "topCityList" $index "country") "" -}}
+{{- field "Latitude" (path "topCityList" $index "lat") "" -}}
+{{- field "Longitude" (path "topCityList" $index "lon") "" -}}
+{{- field "Time zone" (path "topCityList" $index "tz") "" -}}
+{{- field "UTC offset" (path "topCityList" $index "utcOffset") "" -}}
+{{- field "Daylight saving time" (path "topCityList" $index "isDst") "" -}}
+{{- field "Rank" (path "topCityList" $index "rank") "" -}}
+{{- field "Web link" (path "topCityList" $index "fxLink") "" -}}
+{{- end -}}

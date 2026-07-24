@@ -1,0 +1,34 @@
+{{- range $index := items "indexes" }}
+{{- section (printf "Air quality index %d" (inc $index)) }}
+{{- requiredField "Name" (path "indexes" $index "name") "" }}
+{{- requiredField "Code" (path "indexes" $index "code") "" }}
+{{- requiredField "AQI" (path "indexes" $index "aqi") "" }}
+{{- field "AQI display" (path "indexes" $index "aqiDisplay") "" }}
+{{- field "Level" (path "indexes" $index "level") "" }}
+{{- field "Category" (path "indexes" $index "category") "" }}
+{{- field "Primary pollutant" (path "indexes" $index "primaryPollutant.name") "" }}
+{{- field "Primary pollutant code" (path "indexes" $index "primaryPollutant.code") "" }}
+{{- field "Primary pollutant full name" (path "indexes" $index "primaryPollutant.fullName") "" }}
+{{- field "Health effect" (path "indexes" $index "health.effect") "" }}
+{{- field "General advice" (path "indexes" $index "health.advice.generalPopulation") "" }}
+{{- field "Sensitive population advice" (path "indexes" $index "health.advice.sensitivePopulation") "" }}
+{{- end }}
+{{- range $pollutant := optionalItems "pollutants" }}
+{{- section (printf "Pollutant %d" (inc $pollutant)) }}
+{{- requiredField "Name" (path "pollutants" $pollutant "name") "" }}
+{{- requiredField "Code" (path "pollutants" $pollutant "code") "" }}
+{{- field "Full name" (path "pollutants" $pollutant "fullName") "" }}
+{{- field "Concentration" (path "pollutants" $pollutant "concentration.value") "" }}
+{{- field "Concentration unit" (path "pollutants" $pollutant "concentration.unit") "" }}
+{{- range $subIndex := optionalItems (path "pollutants" $pollutant "subIndexes") }}
+{{- section (printf "Pollutant %d / sub-index %d" (inc $pollutant) (inc $subIndex)) }}
+{{- requiredField "Code" (path "pollutants" $pollutant "subIndexes" $subIndex "code") "" }}
+{{- requiredField "AQI" (path "pollutants" $pollutant "subIndexes" $subIndex "aqi") "" }}
+{{- field "AQI display" (path "pollutants" $pollutant "subIndexes" $subIndex "aqiDisplay") "" }}
+{{- end }}
+{{- end }}
+{{- range $station := optionalItems "stations" }}
+{{- section (printf "Monitoring station %d" (inc $station)) }}
+{{- requiredField "Name" (path "stations" $station "name") "" }}
+{{- requiredField "ID" (path "stations" $station "id") "" }}
+{{- end -}}

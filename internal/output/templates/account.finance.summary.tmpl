@@ -1,0 +1,35 @@
+{{- section "Finance summary" }}
+{{- requiredField "As of" "asOf" "" }}
+{{- requiredField "Currency" "currency" "" }}
+{{- requiredField "Balance" "balance" "" }}
+{{- section "Accrued charges" }}
+{{- requiredField "Previous day" "accruedCharges.previousDay" "" }}
+{{- requiredField "This month" "accruedCharges.thisMonth" "" }}
+{{- requiredField "Since last bill" "accruedCharges.sinceLastBill" "" }}
+{{- range $index := items "pendingBills" }}
+{{- section (printf "Pending bill %d" (inc $index)) }}
+{{- requiredField "Number" (path "pendingBills" $index "number") "" }}
+{{- field "Issue date" (path "pendingBills" $index "date") "" }}
+{{- field "Type" (path "pendingBills" $index "type") "" }}
+{{- field "Status" (path "pendingBills" $index "status") "" }}
+{{- field "Amount" (path "pendingBills" $index "amount") "" }}
+{{- field "Amount due" (path "pendingBills" $index "amountDue") "" }}
+{{- field "Due date" (path "pendingBills" $index "dueDate") "" }}
+{{- end }}
+{{- range $index := items "availableSavingsPlans" }}
+{{- section (printf "Available savings plan %d" (inc $index)) }}
+{{- requiredField "Bill number" (path "availableSavingsPlans" $index "billNumber") "" }}
+{{- field "Status" (path "availableSavingsPlans" $index "status") "" }}
+{{- field "Term (years)" (path "availableSavingsPlans" $index "term") "" }}
+{{- field "Commitments" (path "availableSavingsPlans" $index "commitments") "" }}
+{{- field "Utilized" (path "availableSavingsPlans" $index "utilized") "" }}
+{{- field "Effective time" (path "availableSavingsPlans" $index "effectiveTime") "" }}
+{{- end }}
+{{- range $index := items "availableResourcePlans" }}
+{{- section (printf "Available resource plan %d" (inc $index)) }}
+{{- requiredField "Bill number" (path "availableResourcePlans" $index "billNumber") "" }}
+{{- field "Status" (path "availableResourcePlans" $index "status") "" }}
+{{- field "Requests" (path "availableResourcePlans" $index "requests") "" }}
+{{- field "Utilized" (path "availableResourcePlans" $index "utilized") "" }}
+{{- field "Effective time" (path "availableResourcePlans" $index "effectiveTime") "" }}
+{{- end -}}

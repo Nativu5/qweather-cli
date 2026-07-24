@@ -1,0 +1,34 @@
+{{- range $day := items "days" }}
+{{- section (printf "Day %d" (inc $day)) }}
+{{- requiredField "Forecast start" (path "days" $day "forecastStartTime") "" }}
+{{- requiredField "Forecast end" (path "days" $day "forecastEndTime") "" }}
+{{- range $index := items (path "days" $day "indexes") }}
+{{- section (printf "Day %d / air quality index %d" (inc $day) (inc $index)) }}
+{{- requiredField "Name" (path "days" $day "indexes" $index "name") "" }}
+{{- requiredField "Code" (path "days" $day "indexes" $index "code") "" }}
+{{- requiredField "AQI" (path "days" $day "indexes" $index "aqi") "" }}
+{{- field "AQI display" (path "days" $day "indexes" $index "aqiDisplay") "" }}
+{{- field "Level" (path "days" $day "indexes" $index "level") "" }}
+{{- field "Category" (path "days" $day "indexes" $index "category") "" }}
+{{- field "Primary pollutant" (path "days" $day "indexes" $index "primaryPollutant.name") "" }}
+{{- field "Primary pollutant code" (path "days" $day "indexes" $index "primaryPollutant.code") "" }}
+{{- field "Primary pollutant full name" (path "days" $day "indexes" $index "primaryPollutant.fullName") "" }}
+{{- field "Health effect" (path "days" $day "indexes" $index "health.effect") "" }}
+{{- field "General advice" (path "days" $day "indexes" $index "health.advice.generalPopulation") "" }}
+{{- field "Sensitive population advice" (path "days" $day "indexes" $index "health.advice.sensitivePopulation") "" }}
+{{- end }}
+{{- range $pollutant := optionalItems (path "days" $day "pollutants") }}
+{{- section (printf "Day %d / pollutant %d" (inc $day) (inc $pollutant)) }}
+{{- requiredField "Name" (path "days" $day "pollutants" $pollutant "name") "" }}
+{{- requiredField "Code" (path "days" $day "pollutants" $pollutant "code") "" }}
+{{- field "Full name" (path "days" $day "pollutants" $pollutant "fullName") "" }}
+{{- field "Concentration" (path "days" $day "pollutants" $pollutant "concentration.value") "" }}
+{{- field "Concentration unit" (path "days" $day "pollutants" $pollutant "concentration.unit") "" }}
+{{- range $subIndex := optionalItems (path "days" $day "pollutants" $pollutant "subIndexes") }}
+{{- section (printf "Day %d / pollutant %d / sub-index %d" (inc $day) (inc $pollutant) (inc $subIndex)) }}
+{{- requiredField "Code" (path "days" $day "pollutants" $pollutant "subIndexes" $subIndex "code") "" }}
+{{- requiredField "AQI" (path "days" $day "pollutants" $pollutant "subIndexes" $subIndex "aqi") "" }}
+{{- field "AQI display" (path "days" $day "pollutants" $pollutant "subIndexes" $subIndex "aqiDisplay") "" }}
+{{- end }}
+{{- end }}
+{{- end -}}

@@ -1,0 +1,14 @@
+{{- section "Moon events" }}
+{{- requiredField "Provider code" "code" "" }}
+{{- field "Updated at" "updateTime" "" }}
+{{- field "Forecast link" "fxLink" "" }}
+{{- requiredField "Moonrise" "moonrise" "" }}
+{{- requiredField "Moonset" "moonset" "" }}
+{{- range $index := items "moonPhase" }}
+{{- section (printf "Moon phase %d" (inc $index)) }}
+{{- requiredField "Forecast time" (path "moonPhase" $index "fxTime") "" }}
+{{- requiredField "Name" (path "moonPhase" $index "name") "" }}
+{{- requiredField "Value" (path "moonPhase" $index "value") "" }}
+{{- requiredField "Illumination" (path "moonPhase" $index "illumination") (unit "percent") }}
+{{- field "Icon" (path "moonPhase" $index "icon") "" }}
+{{- end -}}

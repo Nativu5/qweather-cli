@@ -1,0 +1,14 @@
+{{- section "Current grid weather" }}
+{{- requiredField "Observed at" "now.obsTime" "" }}
+{{- field "Condition" "now.text" "" }}
+{{- field "Temperature" "now.temp" (unit "temperature") }}
+{{- field "Dew point" "now.dew" (unit "temperature") }}
+{{- field "Humidity" "now.humidity" (unit "percent") }}
+{{- field "Precipitation" "now.precip" (unit "precipitation") }}
+{{- field "Pressure" "now.pressure" (unit "pressure") }}
+{{- field "Cloud cover" "now.cloud" (unit "percent") }}
+{{- field "Wind direction" "now.windDir" "" }}
+{{- field "Wind azimuth" "now.wind360" (unit "angle") }}
+{{- field "Wind scale" "now.windScale" "" }}
+{{- field "Wind speed" "now.windSpeed" (unit "speed") }}
+{{- field "Icon" "now.icon" "" -}}

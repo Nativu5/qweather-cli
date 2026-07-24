@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/Nativu5/qweather-cli/internal/buildinfo"
@@ -20,6 +19,14 @@ func NewRoot(registry *catalog.Registry, runtime Runtime, info buildinfo.Info) (
 	if runtime == nil {
 		runtime = UnavailableRuntime{}
 	}
+	capabilityIDs := make([]string, 0, len(registry.Current()))
+	for _, capability := range registry.Current() {
+		capabilityIDs = append(capabilityIDs, capability.ID)
+	}
+	renderer, err := output.NewRenderer(capabilityIDs)
+	if err != nil {
+		return nil, fmt.Errorf("construct output renderer: %w", err)
+	}
 	common := &CommonOptions{}
 	root := &cobra.Command{
 		Use:           "qweather",
@@ -31,19 +38,18 @@ func NewRoot(registry *catalog.Registry, runtime Runtime, info buildinfo.Info) (
 	root.PersistentFlags().StringVar(&common.ConfigPath, "config", "", "TOML configuration file")
 	root.PersistentFlags().StringVar(&common.Profile, "profile", "", "configuration profile")
 	root.PersistentFlags().DurationVar(&common.Timeout, "timeout", 10*time.Second, "invocation deadline")
-	root.PersistentFlags().StringVar(&common.Output, "output", "json", "output format: json or body")
-	root.PersistentFlags().BoolVar(&common.Pretty, "pretty", false, "pretty-print JSON output")
+	root.PersistentFlags().StringVar(&common.Output, "output", "text", "output mode: text, json, or body")
 	root.PersistentFlags().BoolVar(&common.Refresh, "refresh", false, "skip cache reads and replace a successful entry")
 	root.PersistentFlags().BoolVar(&common.NoCache, "no-cache", false, "skip cache reads and writes")
 	root.PersistentFlags().BoolVar(&common.Debug, "debug", false, "write secret-free diagnostics to stderr")
 
-	if err := addNetworkCommands(root, registry, runtime, common); err != nil {
+	if err := addNetworkCommands(root, registry, runtime, common, renderer); err != nil {
 		return nil, err
 	}
-	root.AddCommand(newCapabilityCommand(registry))
+	root.AddCommand(newCapabilityCommand(registry, common))
 	root.AddCommand(newConfigCommand(runtime, common))
 	root.AddCommand(newCacheCommand(runtime, common, registry))
-	root.AddCommand(newVersionCommand(info))
+	root.AddCommand(newVersionCommand(info, common))
 	return root, nil
 }
 
@@ -55,11 +61,14 @@ func Execute(ctx context.Context, root *cobra.Command, args []string, stdout, st
 	if err := root.Execute(); err != nil {
 		problem, ok := err.(*output.Problem)
 		if !ok {
-			problem = output.NewProblem(2, "INVALID_INVOCATION", cleanCobraError(err))
+			if renderErr := output.RenderCobraError(stderr, err); renderErr != nil {
+				return 10
+			}
+			return 2
 		}
-		pretty, _ := root.Flags().GetBool("pretty")
-		if renderErr := output.RenderProblem(stderr, problem, pretty); renderErr != nil {
-			_, _ = fmt.Fprintf(stderr, "{\"schema\":%q,\"code\":%q,\"message\":%q,\"retryable\":false}\n", output.ProblemSchema, "INTERNAL_ERROR", renderErr.Error())
+		mode := selectedMode(root)
+		if renderErr := output.RenderProblem(stderr, problem, mode); renderErr != nil {
+			_, _ = fmt.Fprintf(stderr, "failed to write command error: %v\n", renderErr)
 			return 10
 		}
 		if problem.ExitCode == 0 {
@@ -70,10 +79,14 @@ func Execute(ctx context.Context, root *cobra.Command, args []string, stdout, st
 	return 0
 }
 
-func cleanCobraError(err error) string {
-	message := strings.TrimSpace(err.Error())
-	if message == "" {
-		return "invalid command invocation"
+func selectedMode(root *cobra.Command) output.Mode {
+	value, err := root.PersistentFlags().GetString("output")
+	if err != nil {
+		return output.ModeText
 	}
-	return message
+	mode := output.Mode(value)
+	if !mode.Valid() {
+		return output.ModeText
+	}
+	return mode
 }

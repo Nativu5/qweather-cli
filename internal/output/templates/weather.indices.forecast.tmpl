@@ -1,0 +1,9 @@
+{{- range $index := items "daily" }}
+{{- section (printf "Weather index %d" (inc $index)) }}
+{{- requiredField "Date" (path "daily" $index "date") "" }}
+{{- field "Name" (path "daily" $index "name") "" }}
+{{- field "Category" (path "daily" $index "category") "" }}
+{{- field "Level" (path "daily" $index "level") "" }}
+{{- field "Type" (path "daily" $index "type") "" }}
+{{- field "Advice" (path "daily" $index "text") "" }}
+{{- end -}}

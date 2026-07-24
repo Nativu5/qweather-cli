@@ -339,7 +339,7 @@ func TestCompileRequestCoversIssueSevenSolarAndAccountCapabilities(t *testing.T)
 				"tilt": {"30"}, "azimuth": {"180"}, "localTime": {"true"},
 			},
 			billing: catalog.BillingSolar, gate: catalog.GateSolar, mode: catalog.CacheEnabled,
-			ttl: 6 * time.Hour, family: catalog.ResponseModernV1,
+			ttl: 6 * time.Hour, family: catalog.ResponseMetadataV1,
 		},
 		{
 			name: "solar provider defaults", id: "solar.radiation.forecast",
@@ -347,7 +347,7 @@ func TestCompileRequestCoversIssueSevenSolarAndAccountCapabilities(t *testing.T)
 			path:     "/solarradiation/v1/forecast/39.9/116.4",
 			query:    url.Values{"hours": {"24"}, "interval": {"60"}},
 			billing:  catalog.BillingSolar, gate: catalog.GateSolar, mode: catalog.CacheEnabled,
-			ttl: 6 * time.Hour, family: catalog.ResponseModernV1,
+			ttl: 6 * time.Hour, family: catalog.ResponseMetadataV1,
 		},
 		{
 			name: "finance summary", id: "account.finance.summary", path: "/finance/v1/summary", query: url.Values{},

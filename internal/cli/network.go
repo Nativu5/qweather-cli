@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func addNetworkCommands(root *cobra.Command, registry *catalog.Registry, runtime Runtime, common *CommonOptions) error {
+func addNetworkCommands(root *cobra.Command, registry *catalog.Registry, runtime Runtime, common *CommonOptions, renderer *output.Renderer) error {
 	nodes := map[string]*cobra.Command{"": root}
 	for _, capability := range registry.Current() {
 		parts := strings.Fields(capability.CommandPath)
@@ -27,7 +27,7 @@ func addNetworkCommands(root *cobra.Command, registry *catalog.Registry, runtime
 			}
 			parent := nodes[parentKey]
 			if index == len(parts)-1 {
-				leaf, err := newNetworkLeaf(capability, runtime, common)
+				leaf, err := newNetworkLeaf(capability, runtime, common, renderer)
 				if err != nil {
 					return err
 				}
@@ -48,7 +48,7 @@ func branchSummary(path string) string {
 	return "QWeather " + path + " commands"
 }
 
-func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *CommonOptions) (*cobra.Command, error) {
+func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *CommonOptions, renderer *output.Renderer) (*cobra.Command, error) {
 	input := &catalog.Input{}
 	parts := strings.Fields(capability.CommandPath)
 	command := &cobra.Command{
@@ -65,7 +65,7 @@ func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *Comm
 					"schema":     "qweather.debug/v1",
 					"event":      "query.start",
 					"capability": capability.ID,
-				}, false)
+				})
 			}
 			result, problem := runtime.Run(command.Context(), Invocation{
 				Capability: capability,
@@ -76,10 +76,19 @@ func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *Comm
 			if problem != nil {
 				return problem
 			}
-			if err := output.RenderResult(command.OutOrStdout(), result, common.Output == "body", common.Pretty); err != nil {
+			info, err := renderer.RenderResult(command.OutOrStdout(), result, output.Mode(common.Output))
+			if err != nil {
 				problem := output.NewProblem(10, "OUTPUT_ERROR", "failed to write command output")
+				problem.Capability = capability.ID
 				problem.Cause = err
 				return problem
+			}
+			if info.Fallback && common.Debug {
+				_ = output.WriteJSON(command.ErrOrStderr(), map[string]any{
+					"schema":     "qweather.debug/v1",
+					"event":      "text.fallback",
+					"capability": capability.ID,
+				})
 			}
 			return nil
 		},

@@ -39,7 +39,7 @@ unit = "metric"
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	exit := cli.Execute(context.Background(), root, []string{"config", "check", "--config", path}, &stdout, &stderr)
+	exit := cli.Execute(context.Background(), root, []string{"config", "check", "--config", path, "--output", "json"}, &stdout, &stderr)
 	if exit != 0 || stderr.Len() != 0 {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout.String(), stderr.String())
 	}
@@ -84,7 +84,7 @@ api_key_env = "QWEATHER_API_KEY"
 	if strings.Contains(stdout.String(), "must-not-appear") || strings.Contains(stderr.String(), "must-not-appear") {
 		t.Fatal("config check failure leaked an API key")
 	}
-	if !strings.Contains(stderr.String(), `"code":"CONFIG_INVALID"`) {
+	if !strings.Contains(stderr.String(), "QWeather configuration is invalid\nCode: CONFIG_INVALID\n") || strings.Contains(stderr.String(), `"schema"`) {
 		t.Fatalf("stderr=%q", stderr.String())
 	}
 }

@@ -1,0 +1,22 @@
+{{- range $index := items "daily" }}
+{{- section (printf "Forecast day %d" (inc $index)) }}
+{{- requiredField "Date" (path "daily" $index "fxDate") "" }}
+{{- field "Day condition" (path "daily" $index "textDay") "" }}
+{{- field "Night condition" (path "daily" $index "textNight") "" }}
+{{- field "Maximum temperature" (path "daily" $index "tempMax") (unit "temperature") }}
+{{- field "Minimum temperature" (path "daily" $index "tempMin") (unit "temperature") }}
+{{- field "Precipitation" (path "daily" $index "precip") (unit "precipitation") }}
+{{- field "Humidity" (path "daily" $index "humidity") (unit "percent") }}
+{{- field "Pressure" (path "daily" $index "pressure") (unit "pressure") }}
+{{- field "Cloud cover" (path "daily" $index "cloud") (unit "percent") }}
+{{- field "Day wind direction" (path "daily" $index "windDirDay") "" }}
+{{- field "Day wind azimuth" (path "daily" $index "wind360Day") (unit "angle") }}
+{{- field "Day wind scale" (path "daily" $index "windScaleDay") "" }}
+{{- field "Day wind speed" (path "daily" $index "windSpeedDay") (unit "speed") }}
+{{- field "Night wind direction" (path "daily" $index "windDirNight") "" }}
+{{- field "Night wind azimuth" (path "daily" $index "wind360Night") (unit "angle") }}
+{{- field "Night wind scale" (path "daily" $index "windScaleNight") "" }}
+{{- field "Night wind speed" (path "daily" $index "windSpeedNight") (unit "speed") }}
+{{- field "Day icon" (path "daily" $index "iconDay") "" }}
+{{- field "Night icon" (path "daily" $index "iconNight") "" }}
+{{- end -}}

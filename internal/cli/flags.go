@@ -104,8 +104,8 @@ func validateInvocation(capability catalog.Capability, input catalog.Input, comm
 	if common.Timeout <= 0 {
 		return invalid(capability.ID, "--timeout must be positive")
 	}
-	if common.Output != "json" && common.Output != "body" {
-		return invalid(capability.ID, "--output must be json or body")
+	if !output.Mode(common.Output).Valid() {
+		return invalid(capability.ID, "--output must be text, json, or body")
 	}
 	if common.Refresh && common.NoCache {
 		return invalid(capability.ID, "--refresh and --no-cache are mutually exclusive")

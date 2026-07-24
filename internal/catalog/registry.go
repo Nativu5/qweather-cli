@@ -147,7 +147,7 @@ func Validate(records []Capability) error {
 }
 
 func validResponseFamily(value ResponseFamily) bool {
-	return value == ResponseLegacyV1 || value == ResponseModernV1 || value == ResponseConsoleV1
+	return value == ResponseCodeReferV1 || value == ResponseMetadataV1 || value == ResponseConsoleV1
 }
 
 func validTarget(value TargetKind) bool {

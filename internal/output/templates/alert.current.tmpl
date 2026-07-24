@@ -1,0 +1,20 @@
+{{- range $index := items "alerts" }}
+{{- section (printf "Weather alert %d" (inc $index)) }}
+{{- requiredField "ID" (path "alerts" $index "id") "" }}
+{{- field "Headline" (path "alerts" $index "headline") "" }}
+{{- field "Event" (path "alerts" $index "eventType" "name") "" }}
+{{- field "Event code" (path "alerts" $index "eventType" "code") "" }}
+{{- field "Severity" (path "alerts" $index "severity") "" }}
+{{- field "Urgency" (path "alerts" $index "urgency") "" }}
+{{- field "Certainty" (path "alerts" $index "certainty") "" }}
+{{- field "Sender" (path "alerts" $index "senderName") "" }}
+{{- field "Issued at" (path "alerts" $index "issuedTime") "" }}
+{{- field "Effective at" (path "alerts" $index "effectiveTime") "" }}
+{{- field "Onset at" (path "alerts" $index "onsetTime") "" }}
+{{- field "Expires at" (path "alerts" $index "expireTime") "" }}
+{{- field "Message type" (path "alerts" $index "messageType" "code") "" }}
+{{- field "Description" (path "alerts" $index "description") "" }}
+{{- field "Criteria" (path "alerts" $index "criteria") "" }}
+{{- field "Instruction" (path "alerts" $index "instruction") "" }}
+{{- field "Icon" (path "alerts" $index "icon") "" }}
+{{- end -}}

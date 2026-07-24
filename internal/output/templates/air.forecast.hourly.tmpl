@@ -1,0 +1,33 @@
+{{- range $hour := items "hours" }}
+{{- section (printf "Hour %d" (inc $hour)) }}
+{{- requiredField "Forecast time" (path "hours" $hour "forecastTime") "" }}
+{{- range $index := items (path "hours" $hour "indexes") }}
+{{- section (printf "Hour %d / air quality index %d" (inc $hour) (inc $index)) }}
+{{- requiredField "Name" (path "hours" $hour "indexes" $index "name") "" }}
+{{- requiredField "Code" (path "hours" $hour "indexes" $index "code") "" }}
+{{- requiredField "AQI" (path "hours" $hour "indexes" $index "aqi") "" }}
+{{- field "AQI display" (path "hours" $hour "indexes" $index "aqiDisplay") "" }}
+{{- field "Level" (path "hours" $hour "indexes" $index "level") "" }}
+{{- field "Category" (path "hours" $hour "indexes" $index "category") "" }}
+{{- field "Primary pollutant" (path "hours" $hour "indexes" $index "primaryPollutant.name") "" }}
+{{- field "Primary pollutant code" (path "hours" $hour "indexes" $index "primaryPollutant.code") "" }}
+{{- field "Primary pollutant full name" (path "hours" $hour "indexes" $index "primaryPollutant.fullName") "" }}
+{{- field "Health effect" (path "hours" $hour "indexes" $index "health.effect") "" }}
+{{- field "General advice" (path "hours" $hour "indexes" $index "health.advice.generalPopulation") "" }}
+{{- field "Sensitive population advice" (path "hours" $hour "indexes" $index "health.advice.sensitivePopulation") "" }}
+{{- end }}
+{{- range $pollutant := optionalItems (path "hours" $hour "pollutants") }}
+{{- section (printf "Hour %d / pollutant %d" (inc $hour) (inc $pollutant)) }}
+{{- requiredField "Name" (path "hours" $hour "pollutants" $pollutant "name") "" }}
+{{- requiredField "Code" (path "hours" $hour "pollutants" $pollutant "code") "" }}
+{{- field "Full name" (path "hours" $hour "pollutants" $pollutant "fullName") "" }}
+{{- field "Concentration" (path "hours" $hour "pollutants" $pollutant "concentration.value") "" }}
+{{- field "Concentration unit" (path "hours" $hour "pollutants" $pollutant "concentration.unit") "" }}
+{{- range $subIndex := optionalItems (path "hours" $hour "pollutants" $pollutant "subIndexes") }}
+{{- section (printf "Hour %d / pollutant %d / sub-index %d" (inc $hour) (inc $pollutant) (inc $subIndex)) }}
+{{- requiredField "Code" (path "hours" $hour "pollutants" $pollutant "subIndexes" $subIndex "code") "" }}
+{{- requiredField "AQI" (path "hours" $hour "pollutants" $pollutant "subIndexes" $subIndex "aqi") "" }}
+{{- field "AQI display" (path "hours" $hour "pollutants" $pollutant "subIndexes" $subIndex "aqiDisplay") "" }}
+{{- end }}
+{{- end }}
+{{- end -}}

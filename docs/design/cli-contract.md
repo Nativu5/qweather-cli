@@ -6,7 +6,7 @@ Schema version: `qweather.result/v1` and `qweather.problem/v1`
 
 Last verified against QWeather documentation: 2026-07-22
 
-This document defines the public process interface of `qweather`. Patch releases may add clarifying help text, but they may not change command paths, required flags, output-schema meaning, or exit-code meaning.
+This document defines the public process interface of `qweather`. Within a released major version, command paths, required flags, Machine Result and Machine Problem meaning, and exit-code meaning remain compatible. Text View wording and layout may improve because Text is not a machine parsing contract.
 
 ## Interface principles
 
@@ -16,6 +16,7 @@ This document defines the public process interface of `qweather`. Patch releases
 - Upstream versions such as `/v7` and provider parameter names are implementation details.
 - Target kinds are explicit. Location IDs, coordinates, station IDs, and storm IDs are never inferred from opaque string shape.
 - There is no arbitrary path, method, query, host, or header passthrough.
+- Text is the default readable presentation. Callers select JSON explicitly when they require a versioned machine interface.
 
 ## Command tree
 
@@ -82,8 +83,7 @@ The first nine branches contain 28 network capabilities. `capability`, `cache`, 
 | `--config <path>` | Select a TOML file. This is not a secret flag. |
 | `--profile <name>` | Select one configured profile. |
 | `--timeout <duration>` | Set the invocation deadline; default `10s`. |
-| `--output json\|body` | Default `json` emits the stable envelope; `body` emits only the provider body. |
-| `--pretty` | Add JSON whitespace only; never drop fields. |
+| `--output text\|json\|body` | Select the invocation presentation; default `text`. `body` is valid only for provider query commands. |
 | `--refresh` | Skip cache read and replace the entry after a successful request. |
 | `--no-cache` | Skip both cache read and cache write. |
 | `--debug` | Emit secret-free diagnostics on stderr. |
@@ -238,11 +238,11 @@ Tombstones cannot be activated by a flag and are never accepted by a generic dis
 
 ```text
 qweather capability list [--domain <name>] [--billing-group basic|marine|solar]
-                           [--lifecycle current|deprecated|all] [--format table|json]
-qweather capability show <capability-id> [--format text|json]
+                           [--lifecycle current|deprecated|all]
+qweather capability show <capability-id>
 ```
 
-These commands are offline and read the same compiled registry used for execution.
+These commands are offline and read the same compiled registry used for execution. Their Text and JSON forms use the global `--output`; command-local format flags do not exist.
 
 ### Configuration
 
@@ -254,11 +254,39 @@ These commands are offline and read the same compiled registry used for executio
 
 ### Version
 
-`qweather version --json` returns the synchronized semantic version, Go version, commit, build time, and registry hash.
+`qweather version` prints the synchronized semantic version in Text. `qweather version --output json` also returns Go version, commit, build time, and registry hash.
 
-## Result envelope
+All local control commands support `--output text` and `--output json`. They reject `--output body` as an exit-2 invocation error because no Provider Body exists.
 
-Default success output is one JSON object:
+## Output modes
+
+One global option controls QWeather-owned success and failure presentation:
+
+| Mode | Successful provider command | Successful local command | QWeather-owned failure |
+| --- | --- | --- | --- |
+| `text` (default) | Text View | command-specific readable Text | Text Problem |
+| `json` | Machine Result | compact command-specific JSON | Machine Problem |
+| `body` | exact successful Provider Body bytes | exit 2 | Text Problem |
+
+Successful output is written only to stdout. Failures write no stdout data. Output mode is presentation state, never part of provider request semantics or cache identity. There is no pretty-print flag: JSON is compact and callers may use `jq`; Text owns readability.
+
+Cobra command-discovery, flag-parsing, and positional-argument diagnostics always use Cobra Text, even when `--output json` was present. Output mode applies after Cobra has selected and parsed a command; the CLI does not parse or wrap Cobra's diagnostic strings.
+
+### Text View
+
+Each of the 28 Current Capabilities selects one embedded, manually maintained entry template by Capability ID. Templates may share partials but cannot be loaded from configuration, a user path, the network, or OpenAPI at runtime. Text uses fixed English labels, does not inspect TTY state or terminal width, and contains no colour or adaptive layout. It is deterministic for one CLI version but is not a stable machine-parsing surface.
+
+A Capability template controls the primary reading order. Every provider field that it does not consume is rendered once under `Additional fields`. Object keys sort lexically; arrays preserve provider order and are never truncated. The renderer preserves provider strings, dates, timestamps, numeric precision, JSON value types, empty values, and array contents. It performs no time conversion, numeric normalization, provider-content sanitization, or value conversion. It may append only units that are known from a provider value or the invocation's effective unit; when a unit cannot be determined reliably, it does not guess. `--lang` affects provider-returned content only, not template labels.
+
+The common Text renderer displays Capability, Resolved Place when present, Cache, logical Operations, and complete Attribution. For a `no_data` outcome it displays No Data as a common exit-0 Text result and does not execute an empty Capability layout. Provider `refer.sources`, `refer.license`, and `metadata.attributions` are marked consumed when Attribution is rendered, so they do not repeat under `Additional fields`.
+
+Templates are compiled and checked with the command tree. Invalid template syntax or a missing entry template for a Current Capability is a broken internal invariant. If a valid template cannot consume an unexpected runtime provider shape, the renderer writes the complete data through its generic Text tree and keeps the successful outcome; a secret-free fallback diagnostic is written only under `--debug`. A renderer or stdout write failure is an `OUTPUT_ERROR`.
+
+Text Problems begin with the problem message and include the symbolic code, Capability, retryable state, and complete safe details when present. Detail objects use deterministic ordering and arrays remain complete. Text Problem layout is readable presentation, not a machine schema.
+
+### Machine Result
+
+`--output json` writes one compact `qweather.result/v1` object followed by a newline:
 
 ```json
 {
@@ -286,7 +314,7 @@ Default success output is one JSON object:
   },
   "upstream": {
     "httpStatus": 200,
-    "responseFamily": "legacy-v1"
+    "responseFamily": "code-refer-v1"
   },
   "attribution": [],
   "data": {}
@@ -299,11 +327,21 @@ Default success output is one JSON object:
 
 `outcome` is `ok` or `no_data`. Provider-defined No Data is exit 0 and is never retried automatically.
 
-`--output body` emits only the complete provider body. It changes output shape but does not expand the executable capability surface.
+Response Family names describe provider-envelope structure, not lifecycle:
 
-## Problem envelope and exit codes
+- `code-refer-v1` uses the provider's string `code` and optional `refer` object;
+- `metadata-v1` relies on HTTP status and uses provider `metadata`; and
+- `console-v1` covers the Account console response shape.
 
-Failures write no stdout data. Stderr receives one `qweather.problem/v1` object unless explicit debug mode adds preceding secret-free diagnostic events.
+Current Capabilities may use `code-refer-v1`; the name never implies deprecation. Only explicit Tombstones are non-executable.
+
+### Provider Body
+
+`--output body` is valid only for a successful provider query. It writes the exact Provider Body bytes without parsing, re-encoding, changing field order, or adding a trailing newline. It does not expose provider error bodies and does not expand the executable Capability surface. On any failure stdout remains empty and stderr receives a Text Problem or Cobra diagnostic.
+
+## Machine Problem and exit codes
+
+For a QWeather-owned failure under `--output json`, stderr receives one compact `qweather.problem/v1` object followed by a newline unless explicit debug mode adds preceding secret-free diagnostic events. Cobra invocation errors are the Text exception described above. Under `--output text` or `--output body`, QWeather-owned failures use the Text Problem presentation.
 
 ```json
 {
@@ -331,7 +369,7 @@ Failures write no stdout data. Stderr receives one `qweather.problem/v1` object 
 | `9` | malformed JSON, oversized body, or unrecognized protocol |
 | `10` | broken internal invariant |
 
-The symbolic `code` is the primary machine decision field. Exit codes provide stable coarse categories for shells and agents.
+The symbolic `code` is the primary Machine Problem decision field. Exit codes provide stable coarse categories for shells and Agents in every output mode.
 
 ## Language and units
 
@@ -347,5 +385,7 @@ The symbolic `code` is the primary machine decision field. Exit codes provide st
 Go binary, npm adapter, and generated Skill references share one semantic version. Within a released major version:
 
 - adding a capability or optional flag is additive;
-- command removal or rename, a new required input, output-schema meaning changes, or exit-code meaning changes require a major release;
-- patch releases may fix implementation defects without changing the public interface.
+- command removal or rename, a new required input, Machine Result or Machine Problem meaning changes, or exit-code meaning changes require a major release;
+- Text labels, spacing, field grouping, and ordering may improve without a major release, but Text must remain deterministic, complete, and consistent with the selected Capability;
+- Provider Body content is owned by QWeather; the CLI promises only successful byte-exact passthrough; and
+- patch releases may fix implementation defects without changing the stable machine interface.

@@ -1,0 +1,33 @@
+{{- section "Daily forecast" -}}
+{{- field "Updated at" "updateTime" "" -}}
+{{- field "Web link" "fxLink" "" -}}
+{{- range $index := items "daily" -}}
+Day {{ inc $index }}:
+{{ requiredField "Date" (path "daily" $index "fxDate") "" -}}
+{{- requiredField "Day condition" (path "daily" $index "textDay") "" -}}
+{{- requiredField "Night condition" (path "daily" $index "textNight") "" -}}
+{{- requiredField "Minimum temperature" (path "daily" $index "tempMin") (unit "temperature") -}}
+{{- requiredField "Maximum temperature" (path "daily" $index "tempMax") (unit "temperature") -}}
+{{- field "Day icon" (path "daily" $index "iconDay") "" -}}
+{{- field "Night icon" (path "daily" $index "iconNight") "" -}}
+{{- field "Sunrise" (path "daily" $index "sunrise") "" -}}
+{{- field "Sunset" (path "daily" $index "sunset") "" -}}
+{{- field "Moonrise" (path "daily" $index "moonrise") "" -}}
+{{- field "Moonset" (path "daily" $index "moonset") "" -}}
+{{- field "Moon phase" (path "daily" $index "moonPhase") "" -}}
+{{- field "Moon phase icon" (path "daily" $index "moonPhaseIcon") "" -}}
+{{- field "Day wind direction" (path "daily" $index "windDirDay") "" -}}
+{{- field "Day wind bearing" (path "daily" $index "wind360Day") (unit "angle") -}}
+{{- field "Day wind scale" (path "daily" $index "windScaleDay") "" -}}
+{{- field "Day wind speed" (path "daily" $index "windSpeedDay") (unit "speed") -}}
+{{- field "Night wind direction" (path "daily" $index "windDirNight") "" -}}
+{{- field "Night wind bearing" (path "daily" $index "wind360Night") (unit "angle") -}}
+{{- field "Night wind scale" (path "daily" $index "windScaleNight") "" -}}
+{{- field "Night wind speed" (path "daily" $index "windSpeedNight") (unit "speed") -}}
+{{- field "Humidity" (path "daily" $index "humidity") (unit "percent") -}}
+{{- field "Precipitation" (path "daily" $index "precip") (unit "precipitation") -}}
+{{- field "Pressure" (path "daily" $index "pressure") (unit "pressure") -}}
+{{- field "Visibility" (path "daily" $index "vis") (unit "visibility") -}}
+{{- field "Cloud cover" (path "daily" $index "cloud") (unit "percent") -}}
+{{- field "UV index" (path "daily" $index "uvIndex") "" -}}
+{{- end -}}

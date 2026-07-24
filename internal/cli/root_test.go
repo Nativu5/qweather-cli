@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,11 +18,25 @@ import (
 
 type recordingRuntime struct {
 	invocations []Invocation
+	body        []byte
+	problem     *output.Problem
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
 }
 
 func (r *recordingRuntime) Run(_ context.Context, invocation Invocation) (*output.Result, *output.Problem) {
 	r.invocations = append(r.invocations, invocation)
-	body := []byte(`{"code":"200","now":{"temp":"20"}}`)
+	if r.problem != nil {
+		return nil, r.problem
+	}
+	body := r.body
+	if len(body) == 0 {
+		body = []byte(`{"code":"200","now":{"temp":"20"}}`)
+	}
 	return &output.Result{
 		Schema:       output.ResultSchema,
 		Outcome:      "ok",
@@ -33,6 +48,7 @@ func (r *recordingRuntime) Run(_ context.Context, invocation Invocation) (*outpu
 		Attribution:  []any{},
 		Data:         json.RawMessage(body),
 		ProviderBody: body,
+		Unit:         "metric",
 	}, nil
 }
 
@@ -101,12 +117,20 @@ func TestRootHelpHasNoUndocumentedCompletionCommand(t *testing.T) {
 	if strings.Contains(stdout, "completion") {
 		t.Fatal("help unexpectedly exposes completion command")
 	}
+	if !strings.Contains(stdout, "--output string") || !strings.Contains(stdout, "(default \"text\")") {
+		t.Fatalf("help does not document the text-first output mode: %s", stdout)
+	}
+	for _, removed := range []string{"--pretty", "--format", "--json"} {
+		if strings.Contains(stdout, removed) {
+			t.Errorf("help unexpectedly exposes removed flag %s", removed)
+		}
+	}
 }
 
 func TestCapabilityDiscoveryIsOfflineAndDeterministic(t *testing.T) {
 	runtime := &recordingRuntime{}
-	exit1, stdout1, stderr1 := runCommand(t, runtime, "capability", "list", "--lifecycle", "all", "--format", "json")
-	exit2, stdout2, stderr2 := runCommand(t, runtime, "capability", "list", "--lifecycle", "all", "--format", "json")
+	exit1, stdout1, stderr1 := runCommand(t, runtime, "capability", "list", "--lifecycle", "all", "--output", "json")
+	exit2, stdout2, stderr2 := runCommand(t, runtime, "capability", "list", "--lifecycle", "all", "--output", "json")
 	if exit1 != 0 || exit2 != 0 || stderr1 != "" || stderr2 != "" {
 		t.Fatalf("unexpected command failure: %d %d %q %q", exit1, exit2, stderr1, stderr2)
 	}
@@ -124,7 +148,7 @@ func TestCapabilityDiscoveryIsOfflineAndDeterministic(t *testing.T) {
 		t.Fatal("offline discovery invoked network runtime")
 	}
 
-	exit, stdout, stderr := runCommand(t, runtime, "capability", "show", "legacy.alert.current", "--format", "json")
+	exit, stdout, stderr := runCommand(t, runtime, "capability", "show", "legacy.alert.current", "--output", "json")
 	if exit != 0 || stderr != "" || !strings.Contains(stdout, `"lifecycle":"deprecated"`) {
 		t.Fatalf("Tombstone output: exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
 	}
@@ -133,7 +157,7 @@ func TestCapabilityDiscoveryIsOfflineAndDeterministic(t *testing.T) {
 func TestNetworkLeafParsesCommonAndTypedFlags(t *testing.T) {
 	runtime := &recordingRuntime{}
 	exit, stdout, stderr := runCommand(t, runtime,
-		"weather", "city", "daily", "--place-id", "101010100", "--days", "7", "--timeout", "2s",
+		"weather", "city", "daily", "--place-id", "101010100", "--days", "7", "--timeout", "2s", "--output", "json",
 	)
 	if exit != 0 || stderr != "" {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
@@ -154,20 +178,90 @@ func TestBodyOutputRemainsProviderOnly(t *testing.T) {
 	exit, stdout, stderr := runCommand(t, &recordingRuntime{},
 		"weather", "city", "current", "--place-id", "101010100", "--output", "body",
 	)
-	if exit != 0 || stderr != "" || stdout != "{\"code\":\"200\",\"now\":{\"temp\":\"20\"}}\n" {
+	if exit != 0 || stderr != "" || stdout != "{\"code\":\"200\",\"now\":{\"temp\":\"20\"}}" {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
 	}
 }
 
-func TestInvalidTypedInputUsesProblemEnvelope(t *testing.T) {
+func TestBodyModeUsesTextForQWeatherOwnedFailure(t *testing.T) {
+	problem := output.NewProblem(8, "TIMEOUT", "provider request timed out")
+	problem.Capability = "weather.city.current"
+	problem.Retryable = true
+	exit, stdout, stderr := runCommand(t, &recordingRuntime{problem: problem},
+		"weather", "city", "current", "--place-id", "101010100", "--output", "body",
+	)
+	if exit != 8 || stdout != "" || !strings.HasPrefix(stderr, "provider request timed out\nCode: TIMEOUT\nCapability: weather.city.current\nRetryable: true\n") || strings.Contains(stderr, `"schema"`) {
+		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
+	}
+}
+
+func TestProviderOutputFailureIncludesCapability(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		expected string
+	}{
+		{
+			name:     "Text",
+			args:     []string{"weather", "city", "current", "--place-id", "101010100"},
+			expected: "failed to write command output\nCode: OUTPUT_ERROR\nCapability: weather.city.current\nRetryable: false\n",
+		},
+		{
+			name:     "JSON",
+			args:     []string{"weather", "city", "current", "--place-id", "101010100", "--output", "json"},
+			expected: `{"schema":"qweather.problem/v1","code":"OUTPUT_ERROR","message":"failed to write command output","capability":"weather.city.current","retryable":false}` + "\n",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			exit := Execute(context.Background(), newTestRoot(t, &recordingRuntime{}), test.args, failingWriter{}, &stderr)
+			if exit != 10 || stderr.String() != test.expected {
+				t.Fatalf("exit=%d stderr=%q, want %q", exit, stderr.String(), test.expected)
+			}
+		})
+	}
+}
+
+func TestTextFallbackDiagnosticRequiresDebug(t *testing.T) {
+	body := []byte(`{"code":"200","unexpected":{"kept":true}}`)
+	args := []string{"weather", "city", "current", "--place-id", "101010100"}
+	exit, stdout, stderr := runCommand(t, &recordingRuntime{body: body}, args...)
+	if exit != 0 || stderr != "" || !strings.Contains(stdout, "Provider data:") || !strings.Contains(stdout, "kept: true") {
+		t.Fatalf("without debug: exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
+	}
+	args = append(args, "--debug")
+	exit, stdout, stderr = runCommand(t, &recordingRuntime{body: body}, args...)
+	if exit != 0 || !strings.Contains(stdout, "Provider data:") || !strings.Contains(stderr, `"event":"text.fallback"`) {
+		t.Fatalf("with debug: exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
+	}
+}
+
+func TestInvalidTypedInputUsesTextProblemByDefault(t *testing.T) {
 	exit, stdout, stderr := runCommand(t, &recordingRuntime{},
 		"weather", "city", "daily", "--place-id", "101010100", "--days", "5",
 	)
 	if exit != 2 || stdout != "" {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
 	}
-	if !strings.Contains(stderr, `"schema":"qweather.problem/v1"`) || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) {
+	if !strings.HasPrefix(stderr, "--days has an unsupported value\nCode: INVALID_INVOCATION\n") || strings.Contains(stderr, `"schema"`) {
 		t.Fatalf("stderr = %q", stderr)
+	}
+}
+
+func TestInvalidTypedInputUsesMachineProblemWhenSelected(t *testing.T) {
+	exit, stdout, stderr := runCommand(t, &recordingRuntime{},
+		"weather", "city", "daily", "--place-id", "101010100", "--days", "5", "--output", "json",
+	)
+	if exit != 2 || stdout != "" || !strings.Contains(stderr, `"schema":"qweather.problem/v1"`) || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) {
+		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
+	}
+}
+
+func TestCobraInvocationErrorsAlwaysUseText(t *testing.T) {
+	exit, stdout, stderr := runCommand(t, &recordingRuntime{}, "accouny", "--output", "json")
+	if exit != 2 || stdout != "" || !strings.HasPrefix(stderr, "Error: unknown command \"accouny\" for \"qweather\"") || strings.Contains(stderr, `"schema"`) {
+		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
 	}
 }
 
@@ -180,6 +274,7 @@ func TestSemanticInputValidationPrecedesRuntime(t *testing.T) {
 	}
 	for _, args := range tests {
 		runtime := &recordingRuntime{}
+		args = append(args, "--output", "json")
 		exit, stdout, stderr := runCommand(t, runtime, args...)
 		if exit != 2 || stdout != "" || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) || len(runtime.invocations) != 0 {
 			t.Fatalf("args=%v exit=%d stdout=%q stderr=%q invocations=%d", args, exit, stdout, stderr, len(runtime.invocations))
@@ -206,8 +301,14 @@ func TestIssueSevenTypedValidationPrecedesRuntime(t *testing.T) {
 	}
 	for _, args := range tests {
 		runtime := &recordingRuntime{}
+		args = append(args, "--output", "json")
 		exit, stdout, stderr := runCommand(t, runtime, args...)
-		if exit != 2 || stdout != "" || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) || len(runtime.invocations) != 0 {
+		cobraParseError := strings.Contains(strings.Join(args, " "), "--tilt-deg 30.5")
+		expectedError := strings.Contains(stderr, `"code":"INVALID_INVOCATION"`)
+		if cobraParseError {
+			expectedError = strings.HasPrefix(stderr, "Error: invalid argument") && !strings.Contains(stderr, `"schema"`)
+		}
+		if exit != 2 || stdout != "" || !expectedError || len(runtime.invocations) != 0 {
 			t.Fatalf("args=%v exit=%d stdout=%q stderr=%q invocations=%d", args, exit, stdout, stderr, len(runtime.invocations))
 		}
 	}
@@ -244,10 +345,29 @@ func TestSolarHelpShowsProviderDefaults(t *testing.T) {
 
 func TestCacheClearRejectsUnknownOrDeprecatedCapability(t *testing.T) {
 	for _, capabilityID := range []string{"missing.capability", "legacy.alert.current"} {
-		exit, stdout, stderr := runCommand(t, &recordingRuntime{}, "cache", "clear", "--capability", capabilityID)
+		exit, stdout, stderr := runCommand(t, &recordingRuntime{}, "cache", "clear", "--capability", capabilityID, "--output", "json")
 		if exit != 2 || stdout != "" || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) {
 			t.Fatalf("capability=%q exit=%d stdout=%q stderr=%q", capabilityID, exit, stdout, stderr)
 		}
+	}
+}
+
+func TestLocalCommandsRejectBodyAndUseGlobalOutput(t *testing.T) {
+	exit, stdout, stderr := runCommand(t, &recordingRuntime{}, "version")
+	if exit != 0 || stderr != "" || !strings.HasPrefix(stdout, "qweather ") {
+		t.Fatalf("Text version: exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
+	}
+	exit, stdout, stderr = runCommand(t, &recordingRuntime{}, "version", "--output", "json")
+	if exit != 0 || stderr != "" || !strings.Contains(stdout, `"registryHash":"test-hash"`) {
+		t.Fatalf("JSON version: exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
+	}
+	exit, stdout, stderr = runCommand(t, &recordingRuntime{}, "cache", "status", "--output", "body")
+	if exit != 2 || stdout != "" || !strings.Contains(stderr, "--output body is not available") || strings.Contains(stderr, `"schema"`) {
+		t.Fatalf("body local command: exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
+	}
+	exit, stdout, stderr = runCommand(t, &recordingRuntime{}, "cache", "status")
+	if exit != 0 || stderr != "" || !strings.Contains(stdout, "entries: 0\n") || strings.Contains(stdout, "{") {
+		t.Fatalf("Text cache status: exit=%d stdout=%q stderr=%q", exit, stdout, stderr)
 	}
 }
 
@@ -258,6 +378,22 @@ func TestNoSecretFlagsAreExposed(t *testing.T) {
 		for _, forbidden := range []string{"api-key", "jwt", "private-key", "authorization"} {
 			if command.Flags().Lookup(forbidden) != nil {
 				t.Errorf("%s exposes forbidden flag --%s", command.CommandPath(), forbidden)
+			}
+		}
+		for _, child := range command.Commands() {
+			walk(child)
+		}
+	}
+	walk(root)
+}
+
+func TestRemovedFormattingFlagsAreAbsent(t *testing.T) {
+	root := newTestRoot(t, &recordingRuntime{})
+	var walk func(*cobra.Command)
+	walk = func(command *cobra.Command) {
+		for _, removed := range []string{"pretty", "format", "json"} {
+			if command.Flags().Lookup(removed) != nil || command.PersistentFlags().Lookup(removed) != nil {
+				t.Errorf("%s exposes removed flag --%s", command.CommandPath(), removed)
 			}
 		}
 		for _, child := range command.Commands() {

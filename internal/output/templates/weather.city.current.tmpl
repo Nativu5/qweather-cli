@@ -1,0 +1,18 @@
+{{- section "Current weather" -}}
+{{- field "Updated at" "updateTime" "" -}}
+{{- field "Web link" "fxLink" "" -}}
+{{- requiredField "Observed at" "now.obsTime" "" -}}
+{{- requiredField "Condition" "now.text" "" -}}
+{{- requiredField "Temperature" "now.temp" (unit "temperature") -}}
+{{- field "Feels like" "now.feelsLike" (unit "temperature") -}}
+{{- field "Icon" "now.icon" "" -}}
+{{- field "Wind direction" "now.windDir" "" -}}
+{{- field "Wind bearing" "now.wind360" (unit "angle") -}}
+{{- field "Wind scale" "now.windScale" "" -}}
+{{- field "Wind speed" "now.windSpeed" (unit "speed") -}}
+{{- field "Humidity" "now.humidity" (unit "percent") -}}
+{{- field "Precipitation" "now.precip" (unit "precipitation") -}}
+{{- field "Pressure" "now.pressure" (unit "pressure") -}}
+{{- field "Visibility" "now.vis" (unit "visibility") -}}
+{{- field "Cloud cover" "now.cloud" (unit "percent") -}}
+{{- field "Dew point" "now.dew" (unit "temperature") -}}
