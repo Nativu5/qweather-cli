@@ -7,7 +7,7 @@ PACKAGES ?= ./...
 all: build
 
 build:
-	@mkdir -p "$$(dirname -- "$(BINARY)")"
+	@mkdir -p -- "$$(dirname -- "$(BINARY)")"
 	$(GO) build -o "$(BINARY)" ./cmd/qweather
 
 test:
