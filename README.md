@@ -76,7 +76,7 @@ make check
 
 ## 配置与认证
 
-配置文件默认位于：
+配置文件默认位于 Go `os.UserConfigDir()` 返回目录下的 `qweather/config.toml`。在 Linux 上通常是 `${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml`；macOS 和 Windows 使用各自的系统用户配置目录。
 
 ```text
 ${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml
@@ -138,7 +138,7 @@ qweather cache clear
 
 ## 产品确认和数据归属
 
-Marine、Solar 和敏感 Account 能力在网络请求前要求显式确认：
+Storm（热带气旋）、Marine、Solar 和敏感 Account 能力在网络请求前要求显式确认。三个 Storm 命令和 Marine 使用 `--allow-product marine`；Solar 使用 `--allow-product solar`：
 
 ```sh
 qweather marine tide \

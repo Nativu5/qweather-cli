@@ -76,7 +76,7 @@ Normal tests never call the live QWeather API. Credentialed, quota-consuming smo
 
 ## Configuration and authentication
 
-The default configuration file is:
+The default configuration file is `qweather/config.toml` under the directory returned by Go's `os.UserConfigDir()`. On Linux this is usually `${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml`; macOS and Windows use their respective system user-config directories.
 
 ```text
 ${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml
@@ -138,7 +138,7 @@ qweather cache clear
 
 ## Product acknowledgements and attribution
 
-Marine, Solar, and sensitive Account capabilities require explicit acknowledgement before network I/O:
+Storm (tropical cyclone), Marine, Solar, and sensitive Account capabilities require explicit acknowledgement before network I/O. The three Storm commands and Marine use `--allow-product marine`; Solar uses `--allow-product solar`:
 
 ```sh
 qweather marine tide \
