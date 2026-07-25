@@ -78,6 +78,8 @@ Normal tests never call the live QWeather API. Credentialed, quota-consuming smo
 
 The default configuration file is `qweather/config.toml` under the directory returned by Go's `os.UserConfigDir()`. On Linux this is usually `${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml`; macOS and Windows use their respective system user-config directories.
 
+Linux example:
+
 ```text
 ${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml
 ```

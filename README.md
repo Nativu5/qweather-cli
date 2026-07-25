@@ -78,6 +78,8 @@ make check
 
 配置文件默认位于 Go `os.UserConfigDir()` 返回目录下的 `qweather/config.toml`。在 Linux 上通常是 `${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml`；macOS 和 Windows 使用各自的系统用户配置目录。
 
+Linux 示例：
+
 ```text
 ${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml
 ```
