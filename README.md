@@ -145,13 +145,13 @@ Storm（热带气旋）、Marine、Solar 和敏感 Account 能力在网络请求
 ```sh
 qweather marine tide \
   --tide-station-id <station-id> \
-  --date 2026-01-01 \
+  --date <YYYY-MM-DD> \
   --allow-product marine
 
 qweather account finance --allow-sensitive-output account
 ```
 
-确认不是交互式提示；它必须作为明确的命令参数提供，适合自动化环境。Marine、Solar 和部分 Storm 能力可能产生费用或没有免费额度，请先阅读 QWeather 当前定价和产品条款。
+确认不是交互式提示；它必须作为明确的命令参数提供，适合自动化环境。Marine tide 的日期必须是 UTC 今天至未来 9 天内。Marine、Solar 和 Storm 能力可能产生费用或没有免费额度，请先阅读 QWeather 当前定价和产品条款。
 
 展示或再利用 QWeather 数据时，请保留所需的 Provider、来源和归属信息。参见 [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/)、[Attribution](https://dev.qweather.com/docs/terms/attribution/) 和 [Developers terms](https://dev.qweather.com/docs/terms/)。
 

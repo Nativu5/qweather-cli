@@ -145,13 +145,13 @@ Storm (tropical cyclone), Marine, Solar, and sensitive Account capabilities requ
 ```sh
 qweather marine tide \
   --tide-station-id <station-id> \
-  --date 2026-01-01 \
+  --date <YYYY-MM-DD> \
   --allow-product marine
 
 qweather account finance --allow-sensitive-output account
 ```
 
-Acknowledgements are explicit flags rather than interactive prompts, so they work in automation. Marine, Solar, and some Storm capabilities may be billable or have no free allowance; read the current QWeather pricing and product terms first.
+Acknowledgements are explicit flags rather than interactive prompts, so they work in automation. The Marine tide date must be between today in UTC and nine days from today. Marine, Solar, and Storm capabilities may be billable or have no free allowance; read the current QWeather pricing and product terms first.
 
 When QWeather data is displayed or reused, preserve the required provider, source, and attribution information. See [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/), [Attribution](https://dev.qweather.com/docs/terms/attribution/), and the [Developers terms](https://dev.qweather.com/docs/terms/).
 
