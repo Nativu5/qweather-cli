@@ -3,7 +3,6 @@ package output
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 	"text/template"
@@ -18,67 +17,6 @@ func testRenderer(t *testing.T, capabilityID, source string) *Renderer {
 		t.Fatal(err)
 	}
 	return &Renderer{templates: map[string]*template.Template{capabilityID: entry}}
-}
-
-func renderOfficialTemplate(t *testing.T, capabilityID, fixture string) string {
-	t.Helper()
-	body, err := os.ReadFile("testdata/official/" + fixture)
-	if err != nil {
-		t.Fatal(err)
-	}
-	renderer, err := loadRenderer()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, exists := renderer.templates[capabilityID]; !exists {
-		t.Fatalf("missing output template for %s", capabilityID)
-	}
-	result := testResult(capabilityID, string(body))
-	result.ProviderBody = body
-	result.Attribution = fixtureAttribution(t, body)
-	var output bytes.Buffer
-	info, err := renderer.RenderResult(&output, result, ModeText)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Fallback {
-		t.Fatalf("%s unexpectedly used generic fallback", capabilityID)
-	}
-	text := output.String()
-	if strings.Contains(text, "<no value>") {
-		t.Fatalf("%s rendered <no value>: %s", capabilityID, text)
-	}
-	if strings.Count(text, "Attribution:") != 1 {
-		t.Fatalf("%s rendered Attribution %d times: %s", capabilityID, strings.Count(text, "Attribution:"), text)
-	}
-	return text
-}
-
-func fixtureAttribution(t *testing.T, body []byte) []any {
-	t.Helper()
-	var object map[string]any
-	if err := json.Unmarshal(body, &object); err != nil {
-		t.Fatal(err)
-	}
-	var attribution []any
-	if metadata, ok := object["metadata"].(map[string]any); ok {
-		if values, ok := metadata["attributions"].([]any); ok {
-			attribution = append(attribution, values...)
-		}
-	}
-	if refer, ok := object["refer"].(map[string]any); ok {
-		if values, ok := refer["sources"].([]any); ok {
-			for _, value := range values {
-				attribution = append(attribution, map[string]any{"source": value})
-			}
-		}
-		if values, ok := refer["license"].([]any); ok {
-			for _, value := range values {
-				attribution = append(attribution, map[string]any{"license": value})
-			}
-		}
-	}
-	return attribution
 }
 
 func testResult(capabilityID, data string) *Result {
