@@ -2,15 +2,11 @@
 
 一个面向人类和智能代理的 QWeather 命令行客户端。
 
-[English version](README_EN.md)
+简体中文 | [English](README_EN.md)
 
 > 本项目是非官方的 QWeather 客户端，与 QWeather 或其关联方没有隶属、赞助或背书关系。项目代码采用 Apache License 2.0；QWeather API 的访问、数据使用、归属声明和商标使用仍受 QWeather 适用条款约束。
 
-## 项目状态
-
-QWeather CLI 正在完善首个公开版本和 npm 分发适配器。发布 npm 包和 Release 二进制之前，安装命令暂不可用；源码、设计文档和测试可以用于审阅和开发。
-
-## 能做什么
+## 功能概览
 
 CLI 使用项目维护的稳定 capability（能力）目录，而不是把 QWeather 的上游 URL 或任意请求字段暴露给调用方。目前包含 28 个可执行能力：
 
@@ -28,63 +24,24 @@ CLI 使用项目维护的稳定 capability（能力）目录，而不是把 QWea
 
 ## 安装
 
-首个公开 Release 发布后，推荐使用固定版本安装 npm 包：
+### 手动下载二进制
 
-```sh
-npm install --global qweather-cli@<version>
-```
+有可用 Release 时，从 [GitHub Releases](https://github.com/Nativu5/qweather-cli/releases) 下载适合操作系统和架构的压缩包。每个发布版本会同时提供 `checksums.txt`，下载后可用它校验 SHA256。解压后，将 `qweather`（Windows 为 `qweather.exe`）放入 `PATH` 中的目录。
 
-也支持项目本地安装和 `npx`：
+发布版本将提供 macOS、Linux 和 Windows 的 `arm64`、`amd64` 二进制。
 
-```sh
-npm install --save-dev qweather-cli@<version>
-npx --package=qweather-cli@<version> qweather --help
-```
+### 从源代码构建
 
-安装过程会根据 `process.platform` 和 `process.arch` 选择同版本的公开 GitHub Release 二进制，并校验 SHA256。正常运行 `qweather` 时不会自动下载、编译、更新或修复二进制。
-
-如果 npm lifecycle scripts 被禁用，全局安装可运行：
-
-```sh
-npm rebuild -g qweather-cli
-```
-
-本地安装则在项目目录运行：
-
-```sh
-npm rebuild qweather-cli
-```
-
-不支持的平台不会回退到源码编译。
-
-## 从源码运行
-
-需要与仓库 `go.mod` 兼容的 Go 工具链。开发时可以直接运行：
+需要与仓库 `go.mod` 兼容的 Go 工具链：
 
 ```sh
 go run ./cmd/qweather --help
 go build -o qweather ./cmd/qweather
 ```
 
-维护者可以使用 Makefile 运行确定性检查：
-
-```sh
-make check
-```
-
-正常测试不会访问真实 QWeather API；需要配额和凭据的 smoke test 仅在受保护的 Release 流程中执行。
-
 ## 配置与认证
 
-配置文件默认位于 Go `os.UserConfigDir()` 返回目录下的 `qweather/config.toml`。在 Linux 上通常是 `${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml`；macOS 和 Windows 使用各自的系统用户配置目录。
-
-Linux 示例：
-
-```text
-${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml
-```
-
-CLI 支持 Ed25519 JWT（推荐）和 API KEY。凭据不要写入命令行参数、提交到 Git 或放入公开 Issue。一个使用环境变量保存 API KEY 的配置示例：
+CLI 支持 Ed25519 JWT（推荐）和 API KEY。凭据不要写入命令行参数、提交到 Git 或放入公开 Issue。将配置保存为 TOML 文件，并使用 `--config` 指定；下面是一个通过环境变量读取 API KEY 的示例：
 
 ```toml
 [profiles.default]
@@ -95,10 +52,10 @@ language = "auto"
 unit = "metric"
 ```
 
-先检查配置，不会发起 provider 请求：
+检查配置不会发起 QWeather API 请求：
 
 ```sh
-qweather config check
+qweather config check --config /path/to/config.toml
 ```
 
 API Host 必须是账户对应的 HTTPS host。认证、API Host 和 JWT 的官方说明见 [QWeather authentication](https://dev.qweather.com/docs/configuration/authentication/)、[API Host](https://dev.qweather.com/docs/configuration/api-host/) 和 [API request configuration](https://dev.qweather.com/docs/configuration/api-config/)。
@@ -138,9 +95,9 @@ qweather cache status
 qweather cache clear
 ```
 
-## 产品确认和数据归属
+## 付费能力与数据归属
 
-Storm（热带气旋）、Marine、Solar 和敏感 Account 能力在网络请求前要求显式确认。三个 Storm 命令和 Marine 使用 `--allow-product marine`；Solar 使用 `--allow-product solar`：
+`--allow-product` 是真实的 CLI 选项，用于在请求前明确确认可能计费的产品。热带气旋和潮汐使用 `--allow-product marine`，太阳辐射使用 `--allow-product solar`。敏感的账户输出使用 `--allow-sensitive-output account`：
 
 ```sh
 qweather marine tide \
@@ -151,7 +108,7 @@ qweather marine tide \
 qweather account finance --allow-sensitive-output account
 ```
 
-确认不是交互式提示；它必须作为明确的命令参数提供，适合自动化环境。Marine tide 的日期必须是 UTC 今天至未来 9 天内。Marine、Solar 和 Storm 能力可能产生费用或没有免费额度，请先阅读 QWeather 当前定价和产品条款。
+这些确认参数适合自动化环境，不会触发交互式提示。潮汐日期必须是 UTC 今天至未来 9 天内。热带气旋、潮汐和太阳辐射能力可能产生费用或没有免费额度，请先阅读 QWeather 当前定价和产品条款。
 
 展示或再利用 QWeather 数据时，请保留所需的 Provider、来源和归属信息。参见 [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/)、[Attribution](https://dev.qweather.com/docs/terms/attribution/) 和 [Developers terms](https://dev.qweather.com/docs/terms/)。
 
