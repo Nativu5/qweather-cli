@@ -2,15 +2,11 @@
 
 An agent-friendly and human-friendly command-line client for QWeather.
 
-[中文说明](README.md)
+[简体中文](README.md) | English
 
 > This is an unofficial QWeather client. It is not affiliated with, sponsored by, or endorsed by QWeather or its affiliates. Project code is licensed under Apache License 2.0; access to QWeather services, use of QWeather data, attribution, and trademark use remain subject to the applicable QWeather terms.
 
-## Project status
-
-QWeather CLI is preparing its first public release and npm distribution adapter. The npm package and Release binaries are not available until that release is published; the source, design documents, and tests are available for review and development.
-
-## Capabilities
+## Feature overview
 
 The CLI uses a curated, project-owned capability catalog. It does not expose upstream URLs or arbitrary provider request fields. The current catalog contains 28 executable capabilities:
 
@@ -28,36 +24,13 @@ Run `qweather --help` or `qweather capability list` to inspect the current comma
 
 ## Installation
 
-After the first public Release, install a fixed npm version:
+### Download a binary manually
 
-```sh
-npm install --global qweather-cli@<version>
-```
+Download the archive for your operating system and architecture from [GitHub Releases](https://github.com/Nativu5/qweather-cli/releases), then verify its SHA256 against `checksums.txt` from the same Release. Extract the archive and place `qweather` (`qweather.exe` on Windows) in a directory on your `PATH`.
 
-Project-local installation and `npx` are also supported:
+Release binaries are provided for `arm64` and `amd64` on macOS, Linux, and Windows.
 
-```sh
-npm install --save-dev qweather-cli@<version>
-npx --package=qweather-cli@<version> qweather --help
-```
-
-The installer selects the same-version public GitHub Release asset for `process.platform` and `process.arch`, then verifies its SHA256. Normal `qweather` execution never downloads, compiles, updates, or repairs the binary.
-
-If npm lifecycle scripts were disabled, repair a global install with:
-
-```sh
-npm rebuild -g qweather-cli
-```
-
-For a project-local install, run this from the project directory:
-
-```sh
-npm rebuild qweather-cli
-```
-
-Unsupported platforms fail clearly and never fall back to compiling Go source.
-
-## Run from source
+### Build from source
 
 Use a Go toolchain compatible with the repository's `go.mod`:
 
@@ -66,25 +39,9 @@ go run ./cmd/qweather --help
 go build -o qweather ./cmd/qweather
 ```
 
-Maintainers can run deterministic checks with the Makefile:
-
-```sh
-make check
-```
-
-Normal tests never call the live QWeather API. Credentialed, quota-consuming smoke tests run only through the protected Release process.
-
 ## Configuration and authentication
 
-The default configuration file is `qweather/config.toml` under the directory returned by Go's `os.UserConfigDir()`. On Linux this is usually `${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml`; macOS and Windows use their respective system user-config directories.
-
-Linux example:
-
-```text
-${XDG_CONFIG_HOME:-~/.config}/qweather/config.toml
-```
-
-The CLI supports Ed25519 JWT (recommended) and API KEY authentication. Do not put credentials in command-line arguments, commit them to Git, or paste them into public Issues. Example configuration using an environment variable for an API KEY:
+The CLI supports Ed25519 JWT (recommended) and API KEY authentication. Do not put credentials in command-line arguments, commit them to Git, or paste them into public Issues. Save the configuration as a TOML file and select it with `--config`; this example reads an API KEY from an environment variable:
 
 ```toml
 [profiles.default]
@@ -95,10 +52,10 @@ language = "auto"
 unit = "metric"
 ```
 
-Validate configuration without making a provider request:
+Validate configuration without making a QWeather API request:
 
 ```sh
-qweather config check
+qweather config check --config /path/to/config.toml
 ```
 
 The API Host must be the account-specific HTTPS host. See the official [QWeather authentication](https://dev.qweather.com/docs/configuration/authentication/), [API Host](https://dev.qweather.com/docs/configuration/api-host/), and [API request configuration](https://dev.qweather.com/docs/configuration/api-config/) documentation.
@@ -138,9 +95,9 @@ qweather cache status
 qweather cache clear
 ```
 
-## Product acknowledgements and attribution
+## Billable capabilities and attribution
 
-Storm (tropical cyclone), Marine, Solar, and sensitive Account capabilities require explicit acknowledgement before network I/O. The three Storm commands and Marine use `--allow-product marine`; Solar uses `--allow-product solar`:
+`--allow-product` is a real CLI option that explicitly acknowledges a potentially billable product before the request. Tropical cyclone and tide commands use `--allow-product marine`; solar radiation uses `--allow-product solar`. Sensitive Account output uses `--allow-sensitive-output account`:
 
 ```sh
 qweather marine tide \
@@ -151,7 +108,7 @@ qweather marine tide \
 qweather account finance --allow-sensitive-output account
 ```
 
-Acknowledgements are explicit flags rather than interactive prompts, so they work in automation. The Marine tide date must be between today in UTC and nine days from today. Marine, Solar, and Storm capabilities may be billable or have no free allowance; read the current QWeather pricing and product terms first.
+These acknowledgement flags work in automation and do not trigger an interactive prompt. The tide date must be between today in UTC and nine days from today. Tropical cyclone, tide, and solar radiation capabilities may be billable or have no free allowance; read the current QWeather pricing and product terms first.
 
 When QWeather data is displayed or reused, preserve the required provider, source, and attribution information. See [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/), [Attribution](https://dev.qweather.com/docs/terms/attribution/), and the [Developers terms](https://dev.qweather.com/docs/terms/).
 
