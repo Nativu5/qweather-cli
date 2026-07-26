@@ -103,7 +103,7 @@ func outputFailure(err error) error {
 	if err == nil {
 		return nil
 	}
-	problem := output.NewProblem(10, "OUTPUT_ERROR", "failed to write command output")
+	problem := output.NewProblem(10, output.CodeOutputError, "failed to write command output")
 	problem.Cause = err
 	return problem
 }

@@ -57,15 +57,15 @@ func ProblemForError(err error, capabilityID string) *output.Problem {
 	if errors.As(err, &clientError) {
 		switch clientError.Kind {
 		case ErrorOversize, ErrorProtocol:
-			problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", "provider response or request violated the protocol contract")
+			problem := output.NewProblem(9, output.CodeUpstreamProtocolError, "provider response or request violated the protocol contract")
 			problem.Capability = capabilityID
 			problem.Cause = err
 			return problem
 		case ErrorNetwork:
-			code := "NETWORK_ERROR"
+			code := output.CodeNetworkError
 			message := "provider request failed"
 			if errors.Is(err, context.DeadlineExceeded) || isTimeout(err) {
-				code = "TIMEOUT"
+				code = output.CodeTimeout
 				message = "provider request timed out"
 			}
 			problem := output.NewProblem(8, code, message)
@@ -75,7 +75,7 @@ func ProblemForError(err error, capabilityID string) *output.Problem {
 			return problem
 		}
 	}
-	problem := output.NewProblem(10, "INTERNAL_ERROR", "unexpected provider client failure")
+	problem := output.NewProblem(10, output.CodeInternalError, "unexpected provider client failure")
 	problem.Capability = capabilityID
 	problem.Cause = err
 	return problem
@@ -102,17 +102,17 @@ func decodeObject(body []byte, capabilityID string) (json.RawMessage, map[string
 }
 
 func upstreamProblem(status int, body []byte, capabilityID string) *output.Problem {
-	code := "UPSTREAM_REJECTED"
+	code := output.CodeUpstreamRejected
 	message := "provider rejected the request"
 	exitCode := 6
 	retryable := false
 	if status == http.StatusTooManyRequests {
-		code = "RATE_LIMITED"
+		code = output.CodeRateLimited
 		message = "provider rate or usage limit reached"
 		exitCode = 7
 		retryable = true
 	} else if status >= 500 {
-		code = "UPSTREAM_UNAVAILABLE"
+		code = output.CodeUpstreamUnavailable
 		message = "provider is temporarily unavailable"
 		exitCode = 8
 		retryable = true
@@ -140,7 +140,7 @@ func codeReferProblem(code, capabilityID string) *output.Problem {
 }
 
 func protocolProblem(capabilityID, reason string) *output.Problem {
-	problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", reason)
+	problem := output.NewProblem(9, output.CodeUpstreamProtocolError, reason)
 	problem.Capability = capabilityID
 	return problem
 }

@@ -29,10 +29,10 @@ func newCapabilityListCommand(registry *catalog.Registry, common *CommonOptions)
 				return problem
 			}
 			if lifecycle != "current" && lifecycle != "deprecated" && lifecycle != "all" {
-				return output.NewProblem(2, "INVALID_INVOCATION", "--lifecycle must be current, deprecated, or all")
+				return output.NewProblem(2, output.CodeInvalidInvocation, "--lifecycle must be current, deprecated, or all")
 			}
 			if billing != "" && billing != "basic" && billing != "marine" && billing != "solar" {
-				return output.NewProblem(2, "INVALID_INVOCATION", "--billing-group must be basic, marine, or solar")
+				return output.NewProblem(2, output.CodeInvalidInvocation, "--billing-group must be basic, marine, or solar")
 			}
 			records := registry.All()
 			filtered := make([]catalog.Capability, 0, len(records))
@@ -81,7 +81,7 @@ func newCapabilityShowCommand(registry *catalog.Registry, common *CommonOptions)
 			}
 			record, ok := registry.Find(args[0])
 			if !ok {
-				return output.NewProblem(2, "UNKNOWN_CAPABILITY", "unknown capability ID")
+				return output.NewProblem(2, output.CodeUnknownCapability, "unknown capability ID")
 			}
 			if common.Output == string(output.ModeJSON) {
 				return renderLocalResult(command, record, *common)

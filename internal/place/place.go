@@ -144,11 +144,11 @@ func Resolve(ctx context.Context, spec Spec, target catalog.TargetKind, language
 			return Resolved{Lat: spec.Coordinate.LatText, Lon: spec.Coordinate.LonText}, nil, nil
 		}
 	default:
-		problem := output.NewProblem(10, "INTERNAL_ERROR", "capability target is not place-aware")
+		problem := output.NewProblem(10, output.CodeInternalError, "capability target is not place-aware")
 		return Resolved{}, nil, problem
 	}
 	if lookup == nil {
-		problem := output.NewProblem(10, "INTERNAL_ERROR", "place lookup is unavailable")
+		problem := output.NewProblem(10, output.CodeInternalError, "place lookup is unavailable")
 		return Resolved{}, nil, problem
 	}
 	candidates, problem := lookup(ctx, LookupQuery{Spec: spec, Language: language})
@@ -160,13 +160,13 @@ func Resolve(ctx context.Context, spec Spec, target catalog.TargetKind, language
 		return Resolved{}, []string{"geo.city.lookup"}, problem
 	}
 	if target == catalog.TargetCoordinate && (selected.Lat == "" || selected.Lon == "") {
-		problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", "resolved place does not contain coordinates")
+		problem := output.NewProblem(9, output.CodeUpstreamProtocolError, "resolved place does not contain coordinates")
 		return Resolved{}, []string{"geo.city.lookup"}, problem
 	}
 	if target == catalog.TargetCoordinate {
 		coordinate, err := parseProviderCoordinate(selected.Lat, selected.Lon)
 		if err != nil {
-			problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", "resolved place contains invalid coordinates")
+			problem := output.NewProblem(9, output.CodeUpstreamProtocolError, "resolved place contains invalid coordinates")
 			problem.Cause = err
 			return Resolved{}, []string{"geo.city.lookup"}, problem
 		}
@@ -174,7 +174,7 @@ func Resolve(ctx context.Context, spec Spec, target catalog.TargetKind, language
 		selected.Lon = canonicalNumber(roundCoordinate(coordinate.Longitude))
 	}
 	if target == catalog.TargetLocationID && selected.ID == "" {
-		problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", "resolved place does not contain a Location ID")
+		problem := output.NewProblem(9, output.CodeUpstreamProtocolError, "resolved place does not contain a Location ID")
 		return Resolved{}, []string{"geo.city.lookup"}, problem
 	}
 	return Resolved{
@@ -220,7 +220,7 @@ func DecodeCandidates(data json.RawMessage) ([]Candidate, error) {
 
 func selectCandidate(spec Spec, candidates []Candidate) (Candidate, *output.Problem) {
 	if len(candidates) == 0 {
-		problem := output.NewProblem(5, "PLACE_NOT_FOUND", "place did not match any QWeather location")
+		problem := output.NewProblem(5, output.CodePlaceNotFound, "place did not match any QWeather location")
 		return Candidate{}, problem
 	}
 	if len(candidates) == 1 {
@@ -245,7 +245,7 @@ func selectCandidate(spec Spec, candidates []Candidate) (Candidate, *output.Prob
 			Adm2: candidate.Adm2, Country: candidate.Country,
 		})
 	}
-	problem := output.NewProblem(5, "AMBIGUOUS_PLACE", "place matches multiple QWeather locations")
+	problem := output.NewProblem(5, output.CodeAmbiguousPlace, "place matches multiple QWeather locations")
 	problem.Details = map[string]any{"candidates": safe}
 	return Candidate{}, problem
 }

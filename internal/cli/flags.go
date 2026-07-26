@@ -236,7 +236,7 @@ func validateFlag(capabilityID string, flag catalog.Flag, input catalog.Input, c
 }
 
 func invalid(capabilityID, message string) *output.Problem {
-	problem := output.NewProblem(2, "INVALID_INVOCATION", message)
+	problem := output.NewProblem(2, output.CodeInvalidInvocation, message)
 	problem.Capability = capabilityID
 	return problem
 }

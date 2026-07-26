@@ -380,7 +380,7 @@ func CompileRequest(capability catalog.Capability, parameters RequestParameters)
 		}
 
 	default:
-		problem := output.NewProblem(10, "CAPABILITY_NOT_IMPLEMENTED", "capability request mapping is not implemented")
+		problem := output.NewProblem(10, output.CodeCapabilityNotImplemented, "capability request mapping is not implemented")
 		problem.Capability = capability.ID
 		return qweather.Request{}, problem
 	}
@@ -553,13 +553,13 @@ func setLimit(query url.Values, limit int, capabilityID string) *output.Problem 
 }
 
 func invalidRequest(capabilityID, message string) *output.Problem {
-	problem := output.NewProblem(2, "INVALID_INVOCATION", message)
+	problem := output.NewProblem(2, output.CodeInvalidInvocation, message)
 	problem.Capability = capabilityID
 	return problem
 }
 
 func internalRequestProblem(capabilityID, message string) *output.Problem {
-	problem := output.NewProblem(10, "INTERNAL_ERROR", message)
+	problem := output.NewProblem(10, output.CodeInternalError, message)
 	problem.Capability = capabilityID
 	return problem
 }

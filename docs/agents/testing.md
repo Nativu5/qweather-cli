@@ -10,6 +10,7 @@ Run focused tests while implementing. Before handing off any Go change, run:
 ```sh
 test -z "$(gofmt -l .)"
 go mod verify
+make skill-check
 go test ./...
 go test -race ./...
 go vet ./...
@@ -25,6 +26,12 @@ ignored `bin/` directory. Use `make test` for the normal non-live Go suite,
 invokes the corresponding granular Make targets so each gate remains an
 individually visible workflow step. The explicit commands above document what
 those targets execute.
+
+`make skill-check` regenerates the expected command and result-schema content
+in memory, checks binary/npm/Skill version synchronization, validates the
+curated Skill layout, and verifies the pinned OpenAPI snapshot manifest,
+reference safety, example closure, and locale comparison. It performs no
+network request and does not modify tracked files.
 
 The deterministic CI job also runs `packages/npm` tests on Node.js 22.21.0 and
 24.18.0 with npm 11.16.0, checks the allowlisted reproducible npm tarball, and
