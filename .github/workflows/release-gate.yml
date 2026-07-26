@@ -46,7 +46,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$(gh issue view 20 --json state --jq .state)" != "CLOSED" ]; then
+          if [ "$(gh issue view 20 --repo "$GITHUB_REPOSITORY" --json state --jq .state)" != "CLOSED" ]; then
             echo "::error::Issue #20 must be closed before the Release gate can package artifacts" >&2
             exit 1
           fi
