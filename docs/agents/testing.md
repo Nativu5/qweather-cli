@@ -26,6 +26,12 @@ invokes the corresponding granular Make targets so each gate remains an
 individually visible workflow step. The explicit commands above document what
 those targets execute.
 
+The deterministic CI job also runs `packages/npm` tests on Node.js 22.21.0 and
+24.18.0 with npm 11.16.0, checks the allowlisted reproducible npm tarball, and
+runs the local-fixture install/version smoke. The smoke injects only a local
+archive into the tested installer seam; it never changes the production fixed
+GitHub download URL and never calls QWeather.
+
 The tagged command compiles the E2E package with a regular expression that
 matches no tests. It validates build compatibility without reading live-test
 configuration or making a provider request.

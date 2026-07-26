@@ -231,6 +231,13 @@ If `qweather` is absent, the Skill prints a fixed-version npm installation comma
 
 The adapter lives outside the Skill under `packages/npm/`. Its package version always matches the Go CLI version.
 
+The implementation is a CommonJS package for Node.js `>=22.21.0`. Its reviewed
+runtime dependencies are pinned in `packages/npm/npm-shrinkwrap.json`:
+`tar@7.5.22` and `yauzl@3.4.0`. The package contains only the shim, installer,
+archive/checksum helpers, project README/license, and the release
+`checksums.txt` manifest; it never contains Go source or a downloaded platform
+binary.
+
 During an explicit npm installation:
 
 1. detect `process.platform` and `process.arch`;
@@ -240,6 +247,14 @@ During an explicit npm installation:
 5. compare SHA256 with the manifest embedded in the npm package;
 6. extract and atomically place the binary; and
 7. set executable permissions where required.
+
+The installer uses the fixed public GitHub Release URL, downloads anonymously,
+honours Node's `proxyEnv: process.env`, follows at most five HTTPS redirects,
+enforces a 64 MiB archive and 128 MiB extracted-content limit, rejects HTTP
+downgrades, validates the exact three-entry archive layout, verifies SHA256,
+and installs through a same-directory temporary path and atomic rename. It
+does not read `GH_TOKEN`, accept a mirror or URL override, retry, or compile
+source.
 
 During normal execution, the JavaScript shim never downloads or updates anything. It launches the installed binary and preserves arguments, signals, stdout, stderr, and exit status.
 
@@ -253,10 +268,11 @@ Daily integration on `main` never publishes or runs live smoke. Stable release
 validation is manual and valid only on an exact `release/vX.Y.Z` branch. The
 [release branch SOP](../agents/release-sop.md) defines branch creation,
 stabilization, approval, smoke, publication handoff, failure handling, and
-retirement. The read-only Release gate stops at a status for one exact source
-SHA; packaging and publication remain owned by Issue #8. GitHub-side reviewer
-and Environment-secret provisioning may follow workflow integration but is a
-hard prerequisite for the first live release run (Issue #20).
+retirement. The Release gate double-builds and retains one exact-SHA artifact
+set, then smoke-tests the Linux amd64 binary from that set; packaging and
+publication remain owned by Issue #8. GitHub-side reviewer and Environment-
+secret provisioning may follow workflow integration but is a hard prerequisite
+for the first live release run (Issue #20).
 
 ### Platform matrix
 
@@ -279,7 +295,11 @@ The npm adapter never resolves `latest` at runtime. A package version downloads 
 
 ### Visibility and license
 
-Development remains private. Before the first general distribution, source and Release assets become public under Apache License 2.0. The project is an unofficial QWeather client and is not affiliated with QWeather. The project license covers project code only; use of QWeather credentials, data, Attribution, and trademarks remains subject to QWeather's terms.
+The source repository is public under Apache License 2.0. Release assets become
+public only through the exact-SHA publication workflow. The project is an
+unofficial QWeather client and is not affiliated with QWeather. The project
+license covers project code only; use of QWeather credentials, data,
+Attribution, and trademarks remains subject to QWeather's terms.
 
 ## Implicit network policy
 

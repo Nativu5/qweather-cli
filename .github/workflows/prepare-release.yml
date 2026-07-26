@@ -1,0 +1,191 @@
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable SemVer without the v prefix, for example 0.1.0
+        required: true
+        type: string
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  open_version_pr:
+    name: open reviewed version PR
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    timeout-minutes: 10
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate stable version
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "version must be stable SemVer without a v prefix or leading zeros" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --heads origin "release-prep/v${VERSION}" >/dev/null 2>&1; then
+            echo "release-prep/v${VERSION} already exists; inspect the existing version PR" >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js 24.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+
+      - name: Pin npm 11.16.0
+        run: npm install --global npm@11.16.0
+
+      - name: Recheck npm name before opening the version PR
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set +e
+          npm view "qweather-cli@${VERSION}" version --json >"$RUNNER_TEMP/qweather-npm-version.json" 2>"$RUNNER_TEMP/qweather-npm-version.err"
+          npm_status=$?
+          npm view qweather-cli name repository.url --json >"$RUNNER_TEMP/qweather-npm-package.json" 2>"$RUNNER_TEMP/qweather-npm-package.err"
+          package_status=$?
+          set -e
+          if [ "$npm_status" -eq 0 ]; then
+            echo "qweather-cli@${VERSION} is already published; stop without opening a version PR" >&2
+            cat "$RUNNER_TEMP/qweather-npm-version.json" >&2
+            exit 1
+          fi
+          if ! node - "$RUNNER_TEMP/qweather-npm-version.json" <<'NODE'
+          const fs = require('node:fs');
+          const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          process.exit(value?.error?.code === 'E404' ? 0 : 1);
+          NODE
+          then
+            cat "$RUNNER_TEMP/qweather-npm-version.err" >&2
+            cat "$RUNNER_TEMP/qweather-npm-version.json" >&2
+            exit 1
+          fi
+          if [ "$package_status" -ne 0 ]; then
+            if node - "$RUNNER_TEMP/qweather-npm-package.json" <<'NODE'
+          const fs = require('node:fs');
+          const path = process.argv[2];
+          let value;
+          try { value = JSON.parse(fs.readFileSync(path, 'utf8')); } catch { process.exit(1); }
+          process.exit(value?.error?.code === 'E404' ? 0 : 1);
+          NODE
+            then
+              : # The unclaimed package name is valid for the first publication.
+            else
+              cat "$RUNNER_TEMP/qweather-npm-package.err" >&2
+              cat "$RUNNER_TEMP/qweather-npm-package.json" >&2
+              exit 1
+            fi
+          else
+            node - "$RUNNER_TEMP/qweather-npm-package.json" <<'NODE'
+          const fs = require('node:fs');
+          const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const normalize = (url) => String(url).replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, '');
+          if (value.name !== 'qweather-cli' || normalize(value['repository.url']) !== 'https://github.com/Nativu5/qweather-cli') {
+            console.error('qweather-cli is published by an unexpected package owner or repository');
+            process.exit(1);
+          }
+          NODE
+          fi
+
+      - name: Synchronize the version source and npm metadata
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$VERSION" > VERSION
+          cd packages/npm
+          npm version --no-git-tag-version --allow-same-version --ignore-scripts "$VERSION"
+          test ! -e package-lock.json
+
+      - name: Open the reviewable version PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch -c "release-prep/v${VERSION}"
+          git add VERSION packages/npm/package.json packages/npm/npm-shrinkwrap.json
+          git diff --cached --check
+          git commit --allow-empty -m "chore(release): prepare v${VERSION}"
+          git push --set-upstream origin "release-prep/v${VERSION}"
+          gh pr create \
+            --base main \
+            --head "release-prep/v${VERSION}" \
+            --title "chore(release): prepare v${VERSION}" \
+            --body "This version PR synchronizes VERSION and npm metadata for v${VERSION}. It does not create a tag, Release, asset, or npm publication. The Release gate remains a separate exact-SHA handoff."
+
+  cut_release_branch:
+    name: cut exact release branch and dispatch gate
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release-prep/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+      issues: read
+    timeout-minutes: 10
+    steps:
+      - name: Check out merged main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Require release-smoke provisioning
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(gh issue view 20 --json state --jq .state)" != "CLOSED" ]; then
+            echo "Issue #20 must be closed before creating a release branch or running the Release gate" >&2
+            exit 1
+          fi
+
+      - name: Create the exact release branch
+        id: release
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          version="${HEAD_REF#release-prep/v}"
+          if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "merged version branch is invalid: $HEAD_REF" >&2
+            exit 1
+          fi
+          test "$(tr -d '[:space:]' < VERSION)" = "$version"
+          git switch -c "release/v${version}"
+          git push --set-upstream origin "release/v${version}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch the exact release gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: gh workflow run release-gate.yml --ref "release/v${VERSION}" --field "version=${VERSION}"
