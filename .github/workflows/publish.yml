@@ -135,6 +135,9 @@ jobs:
             --title "QWeather CLI v${VERSION}" \
             --notes "QWeather CLI v${VERSION}" \
             "$RUNNER_TEMP/release-artifacts"/*
+          expected="$(find "$RUNNER_TEMP/release-artifacts" -maxdepth 1 -type f -printf '%f\n' | sort)"
+          actual="$(gh release view "v${VERSION}" --json assets --jq '[.assets[].name] | sort | .[]')"
+          test "$actual" = "$expected"
 
       - name: Publish the GitHub Release and verify anonymous asset reads
         env:
@@ -143,11 +146,11 @@ jobs:
           set -euo pipefail
           gh release edit "v${VERSION}" --draft=false
           for asset in "$RUNNER_TEMP/release-artifacts"/*; do
-            curl --fail --silent --show-error --location --head \
-              "https://github.com/Nativu5/qweather-cli/releases/download/v${VERSION}/$(basename "$asset")" >/dev/null
+            curl --fail --silent --show-error --location --output /dev/null \
+              "https://github.com/Nativu5/qweather-cli/releases/download/v${VERSION}/$(basename "$asset")"
+          done
 
       - name: Publish the exact npm package after public asset verification
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish "$RUNNER_TEMP/npm-stage" --provenance --access public
-          done
