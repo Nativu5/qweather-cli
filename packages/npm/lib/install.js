@@ -45,13 +45,38 @@ async function install(options = {}) {
     if (platform !== 'win32') {
       await fs.chmod(extracted, 0o755);
     }
-    if (platform === 'win32') {
-      await fs.rm(binaryPath, { force: true });
-    }
-    await fs.rename(extracted, binaryPath);
+    await replaceBinary(extracted, binaryPath, platform);
     return { binary: binaryPath, reused: false };
   } finally {
     await fs.rm(temporaryDirectory, { recursive: true, force: true });
+  }
+}
+
+async function replaceBinary(extracted, binaryPath, platform) {
+  if (platform !== 'win32') {
+    await fs.rename(extracted, binaryPath);
+    return;
+  }
+
+  // Windows cannot atomically rename over an existing file. Keep the old
+  // path recoverable until the new verified binary is in place.
+  const backupPath = `${binaryPath}.qweather-backup`;
+  let backedUp = false;
+  let installed = false;
+  try {
+    try {
+      await fs.rename(binaryPath, backupPath);
+      backedUp = true;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    await fs.rename(extracted, binaryPath);
+    installed = true;
+    if (backedUp) await fs.rm(backupPath, { force: true });
+  } catch (error) {
+    if (installed) await fs.rm(binaryPath, { force: true });
+    if (backedUp) await fs.rename(backupPath, binaryPath);
+    throw error;
   }
 }
 
@@ -72,4 +97,4 @@ async function hasExpectedVersion(binaryPath, expectedVersion, platform) {
   }
 }
 
-module.exports = { hasExpectedVersion, install };
+module.exports = { hasExpectedVersion, install, replaceBinary };

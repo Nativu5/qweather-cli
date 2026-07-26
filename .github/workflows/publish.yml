@@ -62,11 +62,14 @@ jobs:
           test "$(jq -r .conclusion <<<"$gate_json")" = "success"
           test "$(jq -r .headSha <<<"$gate_json")" = "$SOURCE_SHA"
           test "$(jq -r .headBranch <<<"$gate_json")" = "release/v${VERSION}"
+          for issue in 9 20; do
+            test "$(gh issue view "$issue" --json state --jq .state)" = "CLOSED"
+          done
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: '1.26.5'
           cache: true
 
       - name: Download and verify the exact retained artifact
@@ -78,24 +81,57 @@ jobs:
           gh run download "$GATE_RUN_ID" \
             --name "qweather-release-${VERSION}-${SOURCE_SHA}" \
             --dir "$RUNNER_TEMP/release-artifacts"
-          sha256sum -c "$RUNNER_TEMP/release-artifacts/checksums.txt"
+          (cd "$RUNNER_TEMP/release-artifacts" && sha256sum -c checksums.txt)
           go run ./tools/release inspect --version "$VERSION" --output "$RUNNER_TEMP/release-artifacts"
+
+      - name: Set up Node.js 24.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          registry-url: https://registry.npmjs.org
+
+      - name: Pin npm 11.16.0
+        run: npm install --global npm@11.16.0
 
       - name: Recheck npm name availability before publication
         shell: bash
         run: |
           set +e
-          npm view qweather-cli name version --json >/tmp/qweather-npm-name.json 2>/tmp/qweather-npm-name.err
-          status=$?
+          npm view "qweather-cli@${VERSION}" version --json >"$RUNNER_TEMP/qweather-npm-version.json" 2>"$RUNNER_TEMP/qweather-npm-version.err"
+          version_status=$?
+          npm view qweather-cli name repository.url --json >"$RUNNER_TEMP/qweather-npm-package.json" 2>"$RUNNER_TEMP/qweather-npm-package.err"
+          package_status=$?
           set -e
-          if [ "$status" -eq 0 ]; then
-            echo "qweather-cli is already published; stop without changing the Release" >&2
-            cat /tmp/qweather-npm-name.json >&2
+          if [ "$version_status" -eq 0 ]; then
+            echo "qweather-cli@${VERSION} is already published; stop without changing the Release" >&2
+            cat "$RUNNER_TEMP/qweather-npm-version.json" >&2
             exit 1
           fi
-          if ! grep -q 'E404\|Not Found' /tmp/qweather-npm-name.err /tmp/qweather-npm-name.json; then
-            cat /tmp/qweather-npm-name.err >&2
-            exit 1
+          if [ "$package_status" -ne 0 ]; then
+            if node - "$RUNNER_TEMP/qweather-npm-package.json" <<'NODE'
+          const fs = require('node:fs');
+          const path = process.argv[2];
+          let value;
+          try { value = JSON.parse(fs.readFileSync(path, 'utf8')); } catch { process.exit(1); }
+          process.exit(value?.error?.code === 'E404' ? 0 : 1);
+          NODE
+            then
+              : # The unclaimed package name is valid for the first publication.
+            else
+              cat "$RUNNER_TEMP/qweather-npm-package.err" >&2
+              cat "$RUNNER_TEMP/qweather-npm-package.json" >&2
+              exit 1
+            fi
+          else
+            node - "$RUNNER_TEMP/qweather-npm-package.json" <<'NODE'
+          const fs = require('node:fs');
+          const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const normalize = (url) => String(url).replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, '');
+          if (value.name !== 'qweather-cli' || normalize(value['repository.url']) !== 'https://github.com/Nativu5/qweather-cli') {
+            console.error('qweather-cli is published by an unexpected package owner or repository');
+            process.exit(1);
+          }
+          NODE
           fi
 
       - name: Refuse to rewrite an existing tag
@@ -139,16 +175,35 @@ jobs:
           actual="$(gh release view "v${VERSION}" --json assets --jq '[.assets[].name] | sort | .[]')"
           test "$actual" = "$expected"
 
+          rm -rf "$RUNNER_TEMP/draft-readback"
+          mkdir -p "$RUNNER_TEMP/draft-readback"
+          gh release download "v${VERSION}" --pattern '*' --dir "$RUNNER_TEMP/draft-readback" --clobber
+          test "$(find "$RUNNER_TEMP/draft-readback" -maxdepth 1 -type f -printf '%f\n' | sort)" = "$expected"
+          while IFS= read -r asset; do
+            cmp -- "$RUNNER_TEMP/release-artifacts/$asset" "$RUNNER_TEMP/draft-readback/$asset"
+          done <<< "$expected"
+          go run ./tools/release inspect --version "$VERSION" --output "$RUNNER_TEMP/draft-readback"
+
       - name: Publish the GitHub Release and verify anonymous asset reads
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh release edit "v${VERSION}" --draft=false
+          rm -rf "$RUNNER_TEMP/public-readback"
+          mkdir -p "$RUNNER_TEMP/public-readback"
           for asset in "$RUNNER_TEMP/release-artifacts"/*; do
-            curl --fail --silent --show-error --location --output /dev/null \
+            curl --fail --silent --show-error --location \
+              --output "$RUNNER_TEMP/public-readback/$(basename "$asset")" \
               "https://github.com/Nativu5/qweather-cli/releases/download/v${VERSION}/$(basename "$asset")"
           done
+          expected="$(find "$RUNNER_TEMP/release-artifacts" -maxdepth 1 -type f -printf '%f\n' | sort)"
+          test "$(find "$RUNNER_TEMP/public-readback" -maxdepth 1 -type f -printf '%f\n' | sort)" = "$expected"
+          while IFS= read -r asset; do
+            cmp -- "$RUNNER_TEMP/release-artifacts/$asset" "$RUNNER_TEMP/public-readback/$asset"
+          done <<< "$expected"
+          (cd "$RUNNER_TEMP/public-readback" && sha256sum -c checksums.txt)
+          go run ./tools/release inspect --version "$VERSION" --output "$RUNNER_TEMP/public-readback"
 
       - name: Publish the exact npm package after public asset verification
         env:

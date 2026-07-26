@@ -6,8 +6,8 @@ prepared only on a branch named exactly `release/vX.Y.Z` and validated by the
 independent manual Release gate workflow.
 
 This SOP stops at a release-ready commit. Issue #8 owns packaging, tags, GitHub
-Releases, npm publication, and public distribution. Until #8 implements that
-separate flow, a passing gate is not a published release.
+Releases, npm publication, and public distribution. A passing gate is not a
+published release; publication remains a separate protected handoff.
 
 The read-only workflow may be merged before release credentials are provisioned.
 Issue #20 must be completed before the first real release: it adds a supported
@@ -29,23 +29,25 @@ set for 14 days; its publish workflow consumes that set without rebuilding.
 
 Do not reuse one release Issue or branch for multiple versions.
 
-## 1. Cut the release branch
+## 1. Prepare the reviewed version
 
 Choose a stable version in `X.Y.Z` form. Numeric identifiers must not contain
 leading zeros; prerelease/build suffixes need a separate policy and are not
 accepted by the current gate.
 
-Start from a clean, reviewed `main` commit whose required CI passed:
+Dispatch the maintainer-only preparation workflow from `main`:
 
 ```sh
-git switch main
-git pull --ff-only origin main
-git switch -c release/vX.Y.Z
-git push -u origin release/vX.Y.Z
+gh workflow run prepare-release.yml -f version=X.Y.Z
 ```
 
-Record the full source and branch-head SHAs on the release Issue. Branch
-creation does not run smoke, create a tag, or publish anything.
+Review and merge the generated `chore(release): prepare vX.Y.Z` PR. It updates
+the sole version source and synchronized npm metadata; for the initial version,
+those files may already match and the workflow records an explicit no-op
+version commit for review. After merge, the workflow creates the exact
+`release/vX.Y.Z` branch and dispatches the gate. Record the full source and
+branch-head SHAs on the release Issue. Branch creation does not run smoke,
+create a tag, or publish anything.
 
 ## 2. Stabilize without mixing daily development
 

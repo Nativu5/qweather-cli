@@ -167,7 +167,7 @@ func TestPackageArtifactsProducesSixArchivesAndOneManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	binaries := make(map[string][]byte)
-	for _, target := range releaseTargets {
+	for _, target := range supportedReleaseTargets() {
 		binaries[target.GOOS+"/"+target.GOARCH] = []byte(target.GOOS + "/" + target.GOARCH)
 	}
 	artifacts, err := PackageArtifacts(version, binaries, []byte("license\n"), []byte("readme\n"), time.Unix(1_750_000_000, 0).UTC())

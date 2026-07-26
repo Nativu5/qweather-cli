@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "Install and launch the QWeather CLI release binary",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nativu5/qweather-cli"
+  },
   "type": "commonjs",
   "bin": {
     "qweather": "bin/qweather.js"

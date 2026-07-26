@@ -55,6 +55,49 @@ jobs:
       - name: Pin npm 11.16.0
         run: npm install --global npm@11.16.0
 
+      - name: Recheck npm name before opening the version PR
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set +e
+          npm view "qweather-cli@${VERSION}" version --json >"$RUNNER_TEMP/qweather-npm-version.json" 2>"$RUNNER_TEMP/qweather-npm-version.err"
+          npm_status=$?
+          npm view qweather-cli name repository.url --json >"$RUNNER_TEMP/qweather-npm-package.json" 2>"$RUNNER_TEMP/qweather-npm-package.err"
+          package_status=$?
+          set -e
+          if [ "$npm_status" -eq 0 ]; then
+            echo "qweather-cli@${VERSION} is already published; stop without opening a version PR" >&2
+            cat "$RUNNER_TEMP/qweather-npm-version.json" >&2
+            exit 1
+          fi
+          if [ "$package_status" -ne 0 ]; then
+            if node - "$RUNNER_TEMP/qweather-npm-package.json" <<'NODE'
+          const fs = require('node:fs');
+          const path = process.argv[2];
+          let value;
+          try { value = JSON.parse(fs.readFileSync(path, 'utf8')); } catch { process.exit(1); }
+          process.exit(value?.error?.code === 'E404' ? 0 : 1);
+          NODE
+            then
+              : # The unclaimed package name is valid for the first publication.
+            else
+              cat "$RUNNER_TEMP/qweather-npm-package.err" >&2
+              cat "$RUNNER_TEMP/qweather-npm-package.json" >&2
+              exit 1
+            fi
+          else
+            node - "$RUNNER_TEMP/qweather-npm-package.json" <<'NODE'
+          const fs = require('node:fs');
+          const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const normalize = (url) => String(url).replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, '');
+          if (value.name !== 'qweather-cli' || normalize(value['repository.url']) !== 'https://github.com/Nativu5/qweather-cli') {
+            console.error('qweather-cli is published by an unexpected package owner or repository');
+            process.exit(1);
+          }
+          NODE
+          fi
+
       - name: Synchronize the version source and npm metadata
         env:
           VERSION: ${{ inputs.version }}
@@ -62,7 +105,7 @@ jobs:
           set -euo pipefail
           printf '%s\n' "$VERSION" > VERSION
           cd packages/npm
-          npm version --no-git-tag-version --ignore-scripts "$VERSION"
+          npm version --no-git-tag-version --allow-same-version --ignore-scripts "$VERSION"
           test ! -e package-lock.json
 
       - name: Open the reviewable version PR
@@ -76,7 +119,7 @@ jobs:
           git switch -c "release-prep/v${VERSION}"
           git add VERSION packages/npm/package.json packages/npm/npm-shrinkwrap.json
           git diff --cached --check
-          git commit -m "chore(release): prepare v${VERSION}"
+          git commit --allow-empty -m "chore(release): prepare v${VERSION}"
           git push --set-upstream origin "release-prep/v${VERSION}"
           gh pr create \
             --base main \

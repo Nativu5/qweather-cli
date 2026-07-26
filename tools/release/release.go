@@ -57,18 +57,21 @@ type releaseTarget struct {
 	Format string
 }
 
-var releaseTargets = []releaseTarget{
-	{GOOS: "darwin", GOARCH: "arm64", Format: "tar.gz"},
-	{GOOS: "darwin", GOARCH: "amd64", Format: "tar.gz"},
-	{GOOS: "linux", GOARCH: "arm64", Format: "tar.gz"},
-	{GOOS: "linux", GOARCH: "amd64", Format: "tar.gz"},
-	{GOOS: "windows", GOARCH: "arm64", Format: "zip"},
-	{GOOS: "windows", GOARCH: "amd64", Format: "zip"},
+func supportedReleaseTargets() []releaseTarget {
+	return []releaseTarget{
+		{GOOS: "darwin", GOARCH: "arm64", Format: "tar.gz"},
+		{GOOS: "darwin", GOARCH: "amd64", Format: "tar.gz"},
+		{GOOS: "linux", GOARCH: "arm64", Format: "tar.gz"},
+		{GOOS: "linux", GOARCH: "amd64", Format: "tar.gz"},
+		{GOOS: "windows", GOARCH: "arm64", Format: "zip"},
+		{GOOS: "windows", GOARCH: "amd64", Format: "zip"},
+	}
 }
 
 func ReleaseAssetNames(version Version) []string {
-	names := make([]string, 0, len(releaseTargets)+1)
-	for _, target := range releaseTargets {
+	targets := supportedReleaseTargets()
+	names := make([]string, 0, len(targets)+1)
+	for _, target := range targets {
 		names = append(names, fmt.Sprintf("qweather-cli_%s_%s_%s.%s", version, target.GOOS, target.GOARCH, target.Format))
 	}
 	return append(names, "checksums.txt")
@@ -98,11 +101,12 @@ func BuildChecksumManifest(archives map[string][]byte) ([]byte, error) {
 }
 
 func PackageArtifacts(version Version, binaries map[string][]byte, license, readme []byte, timestamp time.Time) (map[string][]byte, error) {
-	if len(binaries) != len(releaseTargets) {
-		return nil, fmt.Errorf("expected %d target binaries, got %d", len(releaseTargets), len(binaries))
+	targets := supportedReleaseTargets()
+	if len(binaries) != len(targets) {
+		return nil, fmt.Errorf("expected %d target binaries, got %d", len(targets), len(binaries))
 	}
-	archives := make(map[string][]byte, len(releaseTargets))
-	for _, target := range releaseTargets {
+	archives := make(map[string][]byte, len(targets))
+	for _, target := range targets {
 		key := target.GOOS + "/" + target.GOARCH
 		binary, ok := binaries[key]
 		if !ok || len(binary) == 0 {
@@ -159,7 +163,7 @@ func VerifyArtifactSet(version Version, artifacts map[string][]byte) error {
 	if !bytes.Equal(manifest, artifacts["checksums.txt"]) {
 		return fmt.Errorf("checksums.txt does not match archive bytes")
 	}
-	for _, target := range releaseTargets {
+	for _, target := range supportedReleaseTargets() {
 		name := fmt.Sprintf("qweather-cli_%s_%s_%s.%s", version, target.GOOS, target.GOARCH, target.Format)
 		binary := "qweather"
 		if target.GOOS == "windows" {
@@ -173,6 +177,7 @@ func VerifyArtifactSet(version Version, artifacts map[string][]byte) error {
 }
 
 func verifyArchiveBytes(data []byte, format, root, binary string) error {
+	const maxExtractedArchiveBytes int64 = 128 * 1024 * 1024
 	expected := map[string]bool{
 		root + "/" + binary: false,
 		root + "/LICENSE":   false,
@@ -184,6 +189,7 @@ func verifyArchiveBytes(data []byte, format, root, binary string) error {
 			return fmt.Errorf("open gzip: %w", err)
 		}
 		tarReader := tar.NewReader(gzipReader)
+		var totalExtracted int64
 		for {
 			header, err := tarReader.Next()
 			if err == io.EOF {
@@ -198,12 +204,17 @@ func verifyArchiveBytes(data []byte, format, root, binary string) error {
 			if _, ok := expected[header.Name]; !ok || expected[header.Name] {
 				return fmt.Errorf("unexpected or duplicate entry %s", header.Name)
 			}
-			if header.Size < 0 || header.Size > 128*1024*1024 {
+			if header.Size < 0 || header.Size > maxExtractedArchiveBytes-totalExtracted {
 				return fmt.Errorf("entry %s exceeds extracted size limit", header.Name)
 			}
-			if _, err := io.Copy(io.Discard, io.LimitReader(tarReader, header.Size)); err != nil {
+			n, err := io.Copy(io.Discard, io.LimitReader(tarReader, header.Size+1))
+			if err != nil {
 				return fmt.Errorf("read entry %s: %w", header.Name, err)
 			}
+			if n != header.Size {
+				return fmt.Errorf("entry %s is shorter than declared", header.Name)
+			}
+			totalExtracted += n
 			expected[header.Name] = true
 		}
 		if err := gzipReader.Close(); err != nil {
@@ -214,6 +225,7 @@ func verifyArchiveBytes(data []byte, format, root, binary string) error {
 		if err != nil {
 			return fmt.Errorf("open zip: %w", err)
 		}
+		var totalExtracted uint64
 		for _, file := range archive.File {
 			if !file.Mode().IsRegular() {
 				return fmt.Errorf("entry %s is not a regular file", file.Name)
@@ -221,17 +233,23 @@ func verifyArchiveBytes(data []byte, format, root, binary string) error {
 			if _, ok := expected[file.Name]; !ok || expected[file.Name] {
 				return fmt.Errorf("unexpected or duplicate entry %s", file.Name)
 			}
-			if file.UncompressedSize64 > 128*1024*1024 {
+			if file.UncompressedSize64 > uint64(maxExtractedArchiveBytes) || file.UncompressedSize64 > uint64(maxExtractedArchiveBytes)-totalExtracted {
 				return fmt.Errorf("entry %s exceeds extracted size limit", file.Name)
 			}
 			reader, err := file.Open()
 			if err != nil {
 				return fmt.Errorf("open entry %s: %w", file.Name, err)
 			}
-			if _, err := io.Copy(io.Discard, io.LimitReader(reader, int64(file.UncompressedSize64))); err != nil {
+			n, err := io.Copy(io.Discard, io.LimitReader(reader, int64(file.UncompressedSize64)+1))
+			if err != nil {
 				reader.Close()
 				return fmt.Errorf("read entry %s: %w", file.Name, err)
 			}
+			if uint64(n) != file.UncompressedSize64 {
+				reader.Close()
+				return fmt.Errorf("entry %s is shorter than declared", file.Name)
+			}
+			totalExtracted += uint64(n)
 			if err := reader.Close(); err != nil {
 				return fmt.Errorf("close entry %s: %w", file.Name, err)
 			}

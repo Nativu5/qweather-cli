@@ -11,12 +11,16 @@ an unattended first release. Complete this checklist in order for each version.
    Environment with exactly `QWEATHER_API_HOST` and `QWEATHER_API_KEY`, plus a
    required reviewer. Never put either value in a workflow input, repository
    variable, Issue, PR, summary, or artifact.
-3. Confirm Issue #31 has completed the npm Trusted Publisher/bootstrap handoff
-   and the `qweather-release-publish` Environment review path.
-4. Recheck `npm view qweather-cli name version`. A successful lookup is a hard
-   stop; an E404 is only a point-in-time availability result and must be
-   repeated immediately before publication.
-5. Dispatch `prepare-release.yml` with stable `X.Y.Z`. Review and merge the
+3. Confirm Issue #9 is closed and its generated Skill/version checks are green.
+4. Confirm Issue #31 Phase A has provisioned the protected
+   `qweather-release-publish` Environment and review path. Phase B cannot finish
+   until the first real package exists; create the temporary bootstrap token only
+   for the authorized first publication, then configure Trusted Publishing and
+   revoke/delete the token immediately afterward.
+5. Recheck `npm view qweather-cli name version`. For the first package, an
+   unclaimed name (E404) is required; later releases must verify the existing
+   package belongs to this repository and that the requested version is absent.
+6. Dispatch `prepare-release.yml` with stable `X.Y.Z`. Review and merge the
    generated `chore(release): prepare vX.Y.Z` PR; do not edit VERSION manually.
 
 ## Exact-SHA release gate
@@ -51,8 +55,9 @@ an unattended first release. Complete this checklist in order for each version.
 
 ## Stop conditions
 
-- npm name is already published or registry availability is ambiguous;
-- #20 or #31 is not complete;
+- the requested npm version is already published, package ownership is
+  unexpected, or registry availability is ambiguous;
+- #9 is not closed, #20 is not complete, or Issue #31 Phase A is not complete;
 - source SHA, release branch, gate run, artifact checksums, or VERSION disagree;
 - any archive contains an unexpected entry or fails anonymous read-back;
 - npm publish fails after a tag or public Release exists.

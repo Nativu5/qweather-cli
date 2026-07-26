@@ -140,8 +140,9 @@ func buildArtifacts(ctx context.Context, options packOptions) (map[string][]byte
 	}
 	defer os.RemoveAll(temporaryDir)
 
-	binaries := make(map[string][]byte, len(releaseTargets))
-	for _, target := range releaseTargets {
+	targets := supportedReleaseTargets()
+	binaries := make(map[string][]byte, len(targets))
+	for _, target := range targets {
 		binaryName := "qweather"
 		if target.GOOS == "windows" {
 			binaryName += ".exe"

@@ -51,3 +51,18 @@ test('shim preserves SIGTERM on POSIX', { skip: process.platform === 'win32', co
   const result = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
   assert.deepEqual(result, { code: null, signal: 'SIGTERM' });
 });
+
+test('shim preserves SIGINT on POSIX', { skip: process.platform === 'win32', concurrency: false }, async (t) => {
+  await fs.mkdir(path.dirname(binary), { recursive: true });
+  await fs.writeFile(binary, '#!/usr/bin/env node\nprocess.stdout.write("ready\\n"); setInterval(() => {}, 1000);\n', { mode: 0o755 });
+  t.after(() => fs.rm(path.dirname(binary), { recursive: true, force: true }));
+
+  const child = spawn(process.execPath, [shim], { stdio: ['ignore', 'pipe', 'pipe'] });
+  await new Promise((resolve, reject) => {
+    child.stdout.once('data', resolve);
+    child.once('error', reject);
+  });
+  child.kill('SIGINT');
+  const result = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+  assert.deepEqual(result, { code: null, signal: 'SIGINT' });
+});
