@@ -56,6 +56,10 @@ jobs:
             echo "source_sha must be a full lowercase 40-character SHA" >&2
             exit 1
           fi
+          if [ "$GITHUB_REF" != "refs/heads/release/v${VERSION}" ]; then
+            echo "publish requires refs/heads/release/v${VERSION}; selected ${GITHUB_REF}" >&2
+            exit 1
+          fi
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           gate_json="$(gh run view "$GATE_RUN_ID" --json workflowName,status,conclusion,headSha,headBranch)"
           test "$(jq -r .workflowName <<<"$gate_json")" = "Release gate"
