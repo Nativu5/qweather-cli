@@ -28,10 +28,9 @@ individually visible workflow step. The explicit commands above document what
 those targets execute.
 
 `make skill-check` regenerates the expected command and result-schema content
-in memory, checks binary/npm/Skill version synchronization, validates the
-curated Skill layout, and verifies the pinned OpenAPI snapshot manifest,
-reference safety, example closure, and locale comparison. It performs no
-network request and does not modify tracked files.
+in memory, checks binary/npm/Skill version synchronization, and validates the
+curated one-level Skill layout and metadata. It performs no network request and
+does not modify tracked files.
 
 The deterministic CI job also runs `packages/npm` tests on Node.js 22.21.0 and
 24.18.0 with npm 11.16.0, checks the allowlisted reproducible npm tarball, and

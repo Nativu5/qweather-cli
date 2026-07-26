@@ -17,9 +17,9 @@ func TestValidateSkillFrontmatter(t *testing.T) {
 		want    string
 	}{
 		{name: "missing", content: "# QWeather\n", want: "must begin"},
-		{name: "unknown field", content: strings.Replace(valid, "description:", "extra: true\ndescription:", 1), want: "field extra not found"},
+		{name: "unknown field", content: strings.Replace(valid, "description:", "extra: true\ndescription:", 1), want: "unexpected field"},
 		{name: "wrong name", content: strings.Replace(valid, "name: qweather", "name: other", 1), want: "want qweather"},
-		{name: "empty description", content: strings.Replace(valid, "description: Safe QWeather guidance.", "description: ''", 1), want: "description must"},
+		{name: "empty description", content: strings.Replace(valid, "description: Safe QWeather guidance.", "description: ", 1), want: "non-empty key/value"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

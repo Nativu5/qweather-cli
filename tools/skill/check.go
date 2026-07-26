@@ -7,8 +7,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-
-	"go.yaml.in/yaml/v3"
 )
 
 var curatedReferenceNames = []string{
@@ -29,9 +27,6 @@ func checkSkill(root string) error {
 	if err := checkSkillStructure(root); err != nil {
 		return err
 	}
-	if err := checkSnapshot(root); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -50,7 +45,10 @@ func checkSkillStructure(root string) error {
 	}
 	markdown := make([]string, 0)
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") {
+		if entry.IsDir() {
+			return fmt.Errorf("Skill references must be one-level files; found directory %s", entry.Name())
+		}
+		if strings.HasSuffix(entry.Name(), ".md") {
 			markdown = append(markdown, entry.Name())
 		}
 	}
@@ -83,11 +81,8 @@ func checkSkillStructure(root string) error {
 }
 
 type skillFrontmatter struct {
-	Name         string         `yaml:"name"`
-	Description  string         `yaml:"description"`
-	License      any            `yaml:"license,omitempty"`
-	AllowedTools any            `yaml:"allowed-tools,omitempty"`
-	Metadata     map[string]any `yaml:"metadata,omitempty"`
+	Name        string
+	Description string
 }
 
 func validateSkillFrontmatter(content string) error {
@@ -99,11 +94,26 @@ func validateSkillFrontmatter(content string) error {
 		return fmt.Errorf("SKILL.md YAML frontmatter is not closed")
 	}
 	frontmatterText := content[len("---\n") : len("---\n")+frontmatterEnd]
-	decoder := yaml.NewDecoder(strings.NewReader(frontmatterText))
-	decoder.KnownFields(true)
 	var frontmatter skillFrontmatter
-	if err := decoder.Decode(&frontmatter); err != nil {
-		return fmt.Errorf("decode SKILL.md YAML frontmatter: %w", err)
+	for _, line := range strings.Split(frontmatterText, "\n") {
+		key, value, ok := strings.Cut(line, ": ")
+		if !ok || strings.TrimSpace(value) == "" {
+			return fmt.Errorf("SKILL.md frontmatter line %q must be a non-empty key/value pair", line)
+		}
+		switch key {
+		case "name":
+			if frontmatter.Name != "" {
+				return fmt.Errorf("SKILL.md frontmatter repeats name")
+			}
+			frontmatter.Name = value
+		case "description":
+			if frontmatter.Description != "" {
+				return fmt.Errorf("SKILL.md frontmatter repeats description")
+			}
+			frontmatter.Description = value
+		default:
+			return fmt.Errorf("SKILL.md frontmatter contains unexpected field %q", key)
+		}
 	}
 	if !regexp.MustCompile(`^[a-z0-9-]{1,64}$`).MatchString(frontmatter.Name) || strings.HasPrefix(frontmatter.Name, "-") || strings.HasSuffix(frontmatter.Name, "-") || strings.Contains(frontmatter.Name, "--") {
 		return fmt.Errorf("SKILL.md frontmatter name %q is not valid hyphen-case", frontmatter.Name)

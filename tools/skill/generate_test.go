@@ -25,6 +25,9 @@ func TestGeneratedReferencesCoverRegistryAndProblemCatalog(t *testing.T) {
 		if !bytes.Contains(commands, []byte("`"+capability.ID+"`")) {
 			t.Errorf("generated command reference omits %s", capability.ID)
 		}
+		if !bytes.Contains(commands, []byte("<"+capability.DocsURL+">")) {
+			t.Errorf("generated command reference omits official documentation for %s", capability.ID)
+		}
 	}
 	if got, want := len(registry.Current()), 28; got != want {
 		t.Fatalf("Current Capability count = %d, want %d", got, want)

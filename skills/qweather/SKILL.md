@@ -38,18 +38,16 @@ See [common-tasks.md](references/common-tasks.md) for command and UNIX-pipeline
 patterns. See [result-schema.md](references/result-schema.md) for Machine Result,
 Machine Problem, and stable problem-code fields.
 
-## OpenAPI lookup boundary
+## Official documentation boundary
 
-Consult `references/upstream/openapi/qweather-apis-en.yml` and
-`qweather-apis-zh.yml` only when provider field descriptions, response schemas,
-or official examples are needed. Load only the relevant locale section and
-local JSON example. Default to the current conversation language. If a field
-appears in multiple response schemas and the operation is unknown, narrow the
-request instead of choosing an arbitrary example. The two locales are
-independent evidence; do not merge them or assume one is a lossless translation.
+Use the current official QWeather web links in the generated command reference
+and curated references when provider field descriptions, response schemas,
+examples, or volatile policy facts are needed. Default to the current
+conversation language and narrow the requested Capability before selecting a
+provider page.
 
-OpenAPI is never a command registry. Deprecated paths, uncurated parameters,
-or spec drift do not create executable commands. The generated command
-reference and CLI validation take precedence. For prose-only constraints or
-volatile pricing, geography, alert, and lifecycle facts, consult the current
-official links in the curated references.
+Official documentation is evidence, never a command registry. Deprecated
+paths, uncurated parameters, examples, or documentation drift do not create
+executable commands. The generated command reference and CLI validation take
+precedence over conflicts or omissions. Do not scrape, mirror, or copy the
+documentation into the Skill.

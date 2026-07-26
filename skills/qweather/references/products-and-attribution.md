@@ -47,7 +47,6 @@ also retains provider attribution fields inside `data` and exposes a convenient
 reformatted.
 
 Follow the current official [Attribution requirements](https://dev.qweather.com/docs/terms/attribution/).
-The bundled OpenAPI snapshot has its own pinned source and CC BY 4.0 notice at
-`upstream/openapi/NOTICE.md`. API access, returned data, credentials, and service
-use remain separately governed by the QWeather Developers EULA and current
-QWeather terms.
+API access, returned data, credentials, and service use remain governed by the
+[QWeather Developers EULA](https://www.qweather.com/terms/developers-eula) and
+current QWeather terms.
