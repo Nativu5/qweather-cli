@@ -71,6 +71,16 @@ jobs:
             cat "$RUNNER_TEMP/qweather-npm-version.json" >&2
             exit 1
           fi
+          if ! node - "$RUNNER_TEMP/qweather-npm-version.json" <<'NODE'
+          const fs = require('node:fs');
+          const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          process.exit(value?.error?.code === 'E404' ? 0 : 1);
+          NODE
+          then
+            cat "$RUNNER_TEMP/qweather-npm-version.err" >&2
+            cat "$RUNNER_TEMP/qweather-npm-version.json" >&2
+            exit 1
+          fi
           if [ "$package_status" -ne 0 ]; then
             if node - "$RUNNER_TEMP/qweather-npm-package.json" <<'NODE'
           const fs = require('node:fs');
@@ -132,6 +142,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release-prep/v')
     runs-on: ubuntu-latest
     permissions:

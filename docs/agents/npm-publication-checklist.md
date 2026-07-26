@@ -39,8 +39,10 @@ an unattended first release. Complete this checklist in order for each version.
 
 ## Publication handoff
 
-1. Immediately repeat the npm name check and stop on any result other than
-   E404/unclaimed.
+1. Immediately repeat the npm name check. For the first publication require an
+   E404/unclaimed package; for later releases require the existing package to
+   point to this repository and the requested version to be absent. Stop on
+   any conflict or ambiguous registry response.
 2. Dispatch `publish.yml` with the version, gate run ID, and exact source SHA.
 3. The workflow revalidates the gate, verifies all six artifacts without
    rebuilding, refuses an existing tag, creates the immutable tag and Draft
