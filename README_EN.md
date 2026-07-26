@@ -26,9 +26,9 @@ Run `qweather --help` or `qweather capability list` to inspect the current comma
 
 ### Download a binary manually
 
-Download the archive for your operating system and architecture from [GitHub Releases](https://github.com/Nativu5/qweather-cli/releases), then verify its SHA256 against `checksums.txt` from the same Release. Extract the archive and place `qweather` (`qweather.exe` on Windows) in a directory on your `PATH`.
+When a Release is available, download the archive for your operating system and architecture from [GitHub Releases](https://github.com/Nativu5/qweather-cli/releases). Each published version includes `checksums.txt`, which you can use to verify the archive's SHA256. Extract the archive and place `qweather` (`qweather.exe` on Windows) in a directory on your `PATH`.
 
-Release binaries are provided for `arm64` and `amd64` on macOS, Linux, and Windows.
+Published versions will provide `arm64` and `amd64` binaries for macOS, Linux, and Windows.
 
 ### Build from source
 

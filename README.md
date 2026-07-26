@@ -26,9 +26,9 @@ CLI 使用项目维护的稳定 capability（能力）目录，而不是把 QWea
 
 ### 手动下载二进制
 
-从 [GitHub Releases](https://github.com/Nativu5/qweather-cli/releases) 下载适合操作系统和架构的压缩包，并根据同一 Release 中的 `checksums.txt` 校验 SHA256。解压后，将 `qweather`（Windows 为 `qweather.exe`）放入 `PATH` 中的目录。
+有可用 Release 时，从 [GitHub Releases](https://github.com/Nativu5/qweather-cli/releases) 下载适合操作系统和架构的压缩包。每个发布版本会同时提供 `checksums.txt`，下载后可用它校验 SHA256。解压后，将 `qweather`（Windows 为 `qweather.exe`）放入 `PATH` 中的目录。
 
-Release 提供 macOS、Linux 和 Windows 的 `arm64`、`amd64` 二进制。
+发布版本将提供 macOS、Linux 和 Windows 的 `arm64`、`amd64` 二进制。
 
 ### 从源代码构建
 
