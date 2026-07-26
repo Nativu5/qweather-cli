@@ -19,11 +19,15 @@ func TestValidateSkillFrontmatter(t *testing.T) {
 		want    string
 	}{
 		{name: "missing", content: "# QWeather\n", want: "must begin"},
-		{name: "unknown field", content: strings.Replace(valid, "description:", "extra: true\ndescription:", 1), want: "unexpected field"},
+		{name: "unknown field", content: strings.Replace(valid, "description:", "extra: value\ndescription:", 1), want: "unexpected field"},
 		{name: "wrong name", content: strings.Replace(valid, "name: qweather", "name: other", 1), want: "want qweather"},
 		{name: "empty description", content: strings.Replace(valid, "description: Safe QWeather guidance.", "description: ", 1), want: "non-empty plain scalar"},
 		{name: "quoted empty description", content: strings.Replace(valid, "description: Safe QWeather guidance.", "description: ''", 1), want: "non-empty plain scalar"},
 		{name: "unterminated flow value", content: strings.Replace(valid, "description: Safe QWeather guidance.", "description: [Safe QWeather guidance.", 1), want: "non-empty plain scalar"},
+		{name: "null description", content: strings.Replace(valid, "description: Safe QWeather guidance.", "description: null", 1), want: "non-empty plain scalar"},
+		{name: "tilde description", content: strings.Replace(valid, "description: Safe QWeather guidance.", "description: ~", 1), want: "non-empty plain scalar"},
+		{name: "boolean description", content: strings.Replace(valid, "description: Safe QWeather guidance.", "description: true", 1), want: "non-empty plain scalar"},
+		{name: "trailing colon", content: strings.Replace(valid, "description: Safe QWeather guidance.", "description: guidance:", 1), want: "non-empty plain scalar"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

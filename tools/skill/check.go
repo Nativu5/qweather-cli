@@ -136,14 +136,16 @@ func isRestrictedYAMLPlainScalar(value string) bool {
 	if value == "" || value != strings.TrimSpace(value) || !utf8.ValidString(value) {
 		return false
 	}
-	if strings.Contains(value, ": ") || strings.Contains(value, " #") {
+	first, _ := utf8.DecodeRuneInString(value)
+	if !unicode.IsLetter(first) || strings.HasSuffix(value, ":") || strings.Contains(value, ": ") || strings.Contains(value, " #") {
 		return false
 	}
-	for i, r := range value {
+	switch strings.ToLower(value) {
+	case "null", "true", "false", "yes", "no", "on", "off":
+		return false
+	}
+	for _, r := range value {
 		if unicode.IsControl(r) || strings.ContainsRune("[]{}&*!|>'\"%@`", r) {
-			return false
-		}
-		if i == 0 && strings.ContainsRune("-?:,#", r) {
 			return false
 		}
 	}
