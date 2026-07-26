@@ -1,0 +1,55 @@
+---
+name: qweather
+description: Choose and safely operate the qweather CLI for weather, place lookup, alerts, air quality, storms, marine tides, solar radiation, astronomy, account data, cache control, configuration checks, and capability discovery. Use when a user wants QWeather data or needs help selecting a qweather command, target, output mode, Product Gate, cache behavior, Machine Result field, or stable problem code.
+---
+
+# QWeather CLI
+
+Use the single `qweather` executable. Let the Go CLI own provider URLs,
+authentication, validation, caching, presentation, and error classification.
+
+## Workflow
+
+1. Check whether `qweather` is available. If it is missing, tell the user to run
+   `npm install --global qweather-cli@0.1.0`, then wait. Never install software
+   implicitly.
+2. Select only a Current Capability from
+   [command-reference.md](references/command-reference.md). Use `qweather
+   capability list --output json` or `qweather capability show <id> --output
+   json` for offline discovery when needed. Tombstones are never executable.
+3. Choose the exact target kind. Read
+   [places-and-errors.md](references/places-and-errors.md) before using a human
+   place name, resolving an ambiguity, or handling a non-zero result.
+4. Apply Product Gates before network I/O. Read
+   [products-and-attribution.md](references/products-and-attribution.md) for
+   Marine, Solar, Storm, Account, cache privacy, and Attribution rules.
+5. Pass an output mode explicitly:
+   - `--output text` for routine human reading;
+   - `--output json` when exact field paths, JSON types, or automation matter;
+   - `--output body` only for byte-exact successful provider data.
+6. Use the default cache unless the user deliberately requests `--refresh` or
+   `--no-cache`. Never retry automatically.
+7. Run one composed command. Preserve stdout as data and stderr as diagnostics.
+   For JSON automation, branch on the Machine Problem `code`, not message text.
+8. Preserve complete Attribution whenever QWeather data is shown, transformed,
+   stored, or shared.
+
+See [common-tasks.md](references/common-tasks.md) for command and UNIX-pipeline
+patterns. See [result-schema.md](references/result-schema.md) for Machine Result,
+Machine Problem, and stable problem-code fields.
+
+## OpenAPI lookup boundary
+
+Consult `references/upstream/openapi/qweather-apis-en.yml` and
+`qweather-apis-zh.yml` only when provider field descriptions, response schemas,
+or official examples are needed. Load only the relevant locale section and
+local JSON example. Default to the current conversation language. If a field
+appears in multiple response schemas and the operation is unknown, narrow the
+request instead of choosing an arbitrary example. The two locales are
+independent evidence; do not merge them or assume one is a lossless translation.
+
+OpenAPI is never a command registry. Deprecated paths, uncurated parameters,
+or spec drift do not create executable commands. The generated command
+reference and CLI validation take precedence. For prose-only constraints or
+volatile pricing, geography, alert, and lifecycle facts, consult the current
+official links in the curated references.

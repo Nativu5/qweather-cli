@@ -78,8 +78,8 @@ type Problem struct {
 	Cause      error  `json:"-"`
 }
 
-func NewProblem(exitCode int, code, message string) *Problem {
-	return &Problem{Schema: ProblemSchema, Code: code, Message: message, ExitCode: exitCode}
+func NewProblem(exitCode int, code ProblemCode, message string) *Problem {
+	return &Problem{Schema: ProblemSchema, Code: string(code), Message: message, ExitCode: exitCode}
 }
 
 func (p *Problem) Error() string {
@@ -102,7 +102,7 @@ func WriteJSON(writer io.Writer, value any) error {
 // never exposed.
 func RenderProblem(writer io.Writer, problem *Problem, mode Mode) error {
 	if problem == nil {
-		problem = NewProblem(10, "INTERNAL_ERROR", "missing problem details")
+		problem = NewProblem(10, CodeInternalError, "missing problem details")
 	}
 	if problem.Schema == "" {
 		problem.Schema = ProblemSchema

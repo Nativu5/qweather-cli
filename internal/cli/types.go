@@ -41,19 +41,19 @@ type Runtime interface {
 type UnavailableRuntime struct{}
 
 func (UnavailableRuntime) Run(_ context.Context, invocation Invocation) (*output.Result, *output.Problem) {
-	problem := output.NewProblem(10, "CAPABILITY_NOT_IMPLEMENTED", "capability implementation is not available")
+	problem := output.NewProblem(10, output.CodeCapabilityNotImplemented, "capability implementation is not available")
 	problem.Capability = invocation.Capability.ID
 	return nil, problem
 }
 
 func (UnavailableRuntime) CheckConfig(context.Context, CommonOptions) (any, *output.Problem) {
-	return nil, output.NewProblem(10, "CONTROL_NOT_IMPLEMENTED", "configuration checking is not available")
+	return nil, output.NewProblem(10, output.CodeControlNotImplemented, "configuration checking is not available")
 }
 
 func (UnavailableRuntime) CacheStatus(context.Context, CacheControlOptions) (any, *output.Problem) {
-	return nil, output.NewProblem(10, "CONTROL_NOT_IMPLEMENTED", "cache status is not available")
+	return nil, output.NewProblem(10, output.CodeControlNotImplemented, "cache status is not available")
 }
 
 func (UnavailableRuntime) CacheClear(context.Context, CacheControlOptions) (any, *output.Problem) {
-	return nil, output.NewProblem(10, "CONTROL_NOT_IMPLEMENTED", "cache clearing is not available")
+	return nil, output.NewProblem(10, output.CodeControlNotImplemented, "cache clearing is not available")
 }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "QWeather CLI"
+  short_description: "Choose and safely run QWeather CLI commands"
+  default_prompt: "Use $qweather to choose and run the right QWeather CLI command safely."

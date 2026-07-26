@@ -11,7 +11,7 @@ BUILD_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || printf '%s' unknown)
 BUILD_TIME ?= $(shell git show -s --format=%cI HEAD 2>/dev/null || printf '%s' unknown)
 BUILD_LDFLAGS := -X github.com/Nativu5/qweather-cli/internal/buildinfo.Version=$(VERSION) -X github.com/Nativu5/qweather-cli/internal/buildinfo.Commit=$(BUILD_COMMIT) -X github.com/Nativu5/qweather-cli/internal/buildinfo.BuildTime=$(BUILD_TIME)
 
-.PHONY: all build test test-race vet fmt-check mod-verify e2e-compile diff-check ci-diff-check check npm-ci npm-test npm-pack-check npm-smoke npm-check release-pack release-verify clean help
+.PHONY: all build test test-race vet fmt-check mod-verify e2e-compile diff-check ci-diff-check check skill-generate skill-check skill-sync-openapi npm-ci npm-test npm-pack-check npm-smoke npm-check release-pack release-verify clean help
 
 all: build
 
@@ -47,7 +47,16 @@ ci-diff-check:
 		git diff --check "$(BASE_SHA)...HEAD"; \
 	fi
 
-check: fmt-check mod-verify test test-race vet build e2e-compile diff-check
+skill-generate:
+	$(GO) run ./tools/skill generate
+
+skill-check:
+	$(GO) run ./tools/skill check
+
+skill-sync-openapi:
+	$(GO) run ./tools/skill sync-openapi --source .cache/qweather-dev-site-source --commit 02bb257a032c503c65924005da6ebca48d94b390
+
+check: fmt-check mod-verify skill-check test test-race vet build e2e-compile diff-check
 
 npm-ci:
 	cd packages/npm && $(NPM) ci --ignore-scripts
@@ -77,6 +86,9 @@ help:
 		'make build                  Build bin/qweather' \
 		'make test                   Run the normal non-live Go test suite' \
 		'make check                  Run every deterministic local gate' \
+		'make skill-generate         Regenerate Skill references and synchronized version text' \
+		'make skill-check            Verify generated Skill and pinned OpenAPI snapshot' \
+		'make skill-sync-openapi     Sync the reviewed qwd/dev-site OpenAPI snapshot' \
 		'make npm-ci                 Install the exact npm shrinkwrap without lifecycle scripts' \
 		'make npm-check              Run npm tests, pack reproducibility, and local install smoke' \
 		'make release-pack           Build the six release archives once' \

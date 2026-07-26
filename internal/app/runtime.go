@@ -96,7 +96,7 @@ func (r *Runtime) Run(ctx context.Context, invocation cli.Invocation) (*output.R
 	}
 	client, err := r.newClient(effective)
 	if err != nil {
-		problem := output.NewProblem(3, "CONFIG_INVALID", "provider client configuration is invalid")
+		problem := output.NewProblem(3, output.CodeConfigInvalid, "provider client configuration is invalid")
 		problem.Capability = invocation.Capability.ID
 		problem.Cause = err
 		return nil, problem
@@ -235,7 +235,7 @@ func (r *Runtime) resolvePlace(ctx context.Context, client qweather.Doer, invoca
 	}
 	spec, err := place.Parse(invocation.Input.Place, invocation.Input.PlaceID, invocation.Input.Coordinate, invocation.Input.Country, invocation.Input.Adm)
 	if err != nil {
-		problem := output.NewProblem(2, "INVALID_INVOCATION", err.Error())
+		problem := output.NewProblem(2, output.CodeInvalidInvocation, err.Error())
 		problem.Capability = invocation.Capability.ID
 		return place.Resolved{}, nil, problem
 	}
@@ -255,7 +255,7 @@ func (r *Runtime) resolvePlace(ctx context.Context, client qweather.Doer, invoca
 		case place.SpecCoordinate:
 			values.Set("location", query.Spec.Coordinate.ProviderQuery())
 		default:
-			return nil, output.NewProblem(10, "INTERNAL_ERROR", "place lookup received an unknown Place Spec")
+			return nil, output.NewProblem(10, output.CodeInternalError, "place lookup received an unknown Place Spec")
 		}
 		if query.Language != "" && query.Language != "auto" {
 			values.Set("lang", query.Language)
@@ -277,7 +277,7 @@ func (r *Runtime) resolvePlace(ctx context.Context, client qweather.Doer, invoca
 		}
 		candidates, decodeErr := place.DecodeCandidates(classified.Data)
 		if decodeErr != nil {
-			problem := output.NewProblem(9, "UPSTREAM_PROTOCOL_ERROR", "GeoAPI returned invalid place candidates")
+			problem := output.NewProblem(9, output.CodeUpstreamProtocolError, "GeoAPI returned invalid place candidates")
 			problem.Capability = invocation.Capability.ID
 			problem.Cause = decodeErr
 			return nil, problem
@@ -344,13 +344,13 @@ func checkProductGate(invocation cli.Invocation) *output.Problem {
 	if acknowledged {
 		return nil
 	}
-	problem := output.NewProblem(4, "PRODUCT_GATE_REQUIRED", "required product or sensitive-output acknowledgement is missing")
+	problem := output.NewProblem(4, output.CodeProductGateRequired, "required product or sensitive-output acknowledgement is missing")
 	problem.Capability = invocation.Capability.ID
 	return problem
 }
 
 func configProblem(capabilityID string, err error) *output.Problem {
-	problem := output.NewProblem(3, "CONFIG_INVALID", "QWeather configuration is invalid")
+	problem := output.NewProblem(3, output.CodeConfigInvalid, "QWeather configuration is invalid")
 	problem.Capability = capabilityID
 	problem.Details = map[string]any{"reason": fmt.Sprintf("%v", err)}
 	problem.Cause = err
@@ -358,7 +358,7 @@ func configProblem(capabilityID string, err error) *output.Problem {
 }
 
 func cacheProblem(capabilityID string, err error) *output.Problem {
-	problem := output.NewProblem(10, "CACHE_IO_ERROR", "persistent cache operation failed")
+	problem := output.NewProblem(10, output.CodeCacheIOError, "persistent cache operation failed")
 	problem.Capability = capabilityID
 	problem.Cause = err
 	return problem

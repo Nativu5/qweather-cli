@@ -37,6 +37,9 @@ jobs:
       - name: Verify modules
         run: make mod-verify
 
+      - name: Verify generated Skill and OpenAPI snapshot
+        run: make skill-check
+
       - name: Run unit tests
         run: make test
 
