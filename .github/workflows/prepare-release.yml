@@ -148,6 +148,7 @@ jobs:
     permissions:
       contents: write
       actions: write
+      issues: read
     timeout-minutes: 10
     steps:
       - name: Check out merged main
@@ -155,6 +156,15 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Require release-smoke provisioning
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(gh issue view 20 --json state --jq .state)" != "CLOSED" ]; then
+            echo "Issue #20 must be closed before creating a release branch or running the Release gate" >&2
+            exit 1
+          fi
 
       - name: Create the exact release branch
         id: release
