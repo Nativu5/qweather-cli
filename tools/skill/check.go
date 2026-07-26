@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 var curatedReferenceNames = []string{
@@ -43,17 +45,19 @@ func checkSkillStructure(root string) error {
 	if err != nil {
 		return fmt.Errorf("read Skill references: %w", err)
 	}
-	markdown := make([]string, 0)
+	referenceNames := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if entry.IsDir() {
-			return fmt.Errorf("Skill references must be one-level files; found directory %s", entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			return fmt.Errorf("inspect Skill reference %s: %w", entry.Name(), err)
 		}
-		if strings.HasSuffix(entry.Name(), ".md") {
-			markdown = append(markdown, entry.Name())
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("Skill reference %s must be a regular file", entry.Name())
 		}
+		referenceNames = append(referenceNames, entry.Name())
 	}
-	if !reflect.DeepEqual(markdown, curatedReferenceNames) {
-		return fmt.Errorf("curated one-level reference set = %v, want %v", markdown, curatedReferenceNames)
+	if !reflect.DeepEqual(referenceNames, curatedReferenceNames) {
+		return fmt.Errorf("curated one-level reference set = %v, want %v", referenceNames, curatedReferenceNames)
 	}
 	skillBytes, err := os.ReadFile(filepath.Join(skillRoot, "SKILL.md"))
 	if err != nil {
@@ -97,8 +101,8 @@ func validateSkillFrontmatter(content string) error {
 	var frontmatter skillFrontmatter
 	for _, line := range strings.Split(frontmatterText, "\n") {
 		key, value, ok := strings.Cut(line, ": ")
-		if !ok || strings.TrimSpace(value) == "" {
-			return fmt.Errorf("SKILL.md frontmatter line %q must be a non-empty key/value pair", line)
+		if !ok || !isRestrictedYAMLPlainScalar(value) {
+			return fmt.Errorf("SKILL.md frontmatter line %q must use a non-empty plain scalar", line)
 		}
 		switch key {
 		case "name":
@@ -126,4 +130,22 @@ func validateSkillFrontmatter(content string) error {
 		return fmt.Errorf("SKILL.md frontmatter description must be non-empty, at most 1024 bytes, and contain no angle brackets")
 	}
 	return nil
+}
+
+func isRestrictedYAMLPlainScalar(value string) bool {
+	if value == "" || value != strings.TrimSpace(value) || !utf8.ValidString(value) {
+		return false
+	}
+	if strings.Contains(value, ": ") || strings.Contains(value, " #") {
+		return false
+	}
+	for i, r := range value {
+		if unicode.IsControl(r) || strings.ContainsRune("[]{}&*!|>'\"%@`", r) {
+			return false
+		}
+		if i == 0 && strings.ContainsRune("-?:,#", r) {
+			return false
+		}
+	}
+	return true
 }
