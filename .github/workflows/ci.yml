@@ -56,3 +56,46 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: make ci-diff-check
+
+      - name: Set up Node.js 22.21.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.21.0
+          cache: npm
+          cache-dependency-path: packages/npm/npm-shrinkwrap.json
+
+      - name: Pin npm 11.16.0 on Node.js 22
+        run: npm install --global npm@11.16.0
+
+      - name: Install npm adapter dependencies on Node.js 22
+        working-directory: packages/npm
+        run: npm ci --ignore-scripts
+
+      - name: Test npm adapter on Node.js 22
+        working-directory: packages/npm
+        run: npm test --ignore-scripts
+
+      - name: Set up Node.js 24.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: packages/npm/npm-shrinkwrap.json
+
+      - name: Pin npm 11.16.0 on Node.js 24
+        run: npm install --global npm@11.16.0
+
+      - name: Install npm adapter dependencies on Node.js 24
+        working-directory: packages/npm
+        run: npm ci --ignore-scripts
+
+      - name: Test npm adapter on Node.js 24
+        working-directory: packages/npm
+        run: npm test --ignore-scripts
+
+      - name: Check reproducible npm pack
+        working-directory: packages/npm
+        run: npm run pack:check
+
+      - name: Run local npm install/version smoke
+        run: make npm-smoke

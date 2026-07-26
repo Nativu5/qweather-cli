@@ -1,6 +1,9 @@
 package buildinfo
 
-import "runtime"
+import (
+	"runtime"
+	"time"
+)
 
 var (
 	Version   = "dev"
@@ -21,7 +24,15 @@ func Current(registryHash string) Info {
 		Version:      Version,
 		GoVersion:    runtime.Version(),
 		Commit:       Commit,
-		BuildTime:    BuildTime,
+		BuildTime:    normalizedBuildTime(BuildTime),
 		RegistryHash: registryHash,
 	}
+}
+
+func normalizedBuildTime(value string) string {
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return value
+	}
+	return parsed.UTC().Format(time.RFC3339)
 }

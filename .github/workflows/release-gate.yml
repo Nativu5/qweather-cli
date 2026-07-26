@@ -46,11 +46,48 @@ jobs:
     needs: validate
     uses: ./.github/workflows/ci.yml
 
+  package:
+    name: reproducible six-target package
+    needs:
+      - validate
+      - deterministic
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Double-build and verify release artifacts
+        run: make release-verify VERSION="${{ inputs.version }}"
+
+      - name: Verify the final artifact directory
+        run: go run ./tools/release inspect --version "${{ inputs.version }}" --output dist
+
+      - name: Upload the exact retained artifact set
+        uses: actions/upload-artifact@v4
+        with:
+          name: qweather-release-${{ inputs.version }}-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
   smoke:
     name: approved live smoke
     needs:
       - validate
       - deterministic
+      - package
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -65,14 +102,27 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build release-smoke binary
+      - name: Download the exact retained artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qweather-release-${{ inputs.version }}-${{ github.sha }}
+          path: ${{ runner.temp }}/release-artifacts
+
+      - name: Verify checksums and extract Linux amd64 binary
+        shell: bash
         env:
-          CGO_ENABLED: "0"
-        run: make build BINARY="$RUNNER_TEMP/qweather" BUILD_FLAGS=-trimpath
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release-artifacts"
+          sha256sum -c checksums.txt
+          mkdir -p "$RUNNER_TEMP/release-extract"
+          tar -xzf "qweather-cli_${VERSION}_linux_amd64.tar.gz" -C "$RUNNER_TEMP/release-extract"
+          chmod 0755 "$RUNNER_TEMP/release-extract/qweather-cli_${VERSION}_linux_amd64/qweather"
 
       - name: Run the three approved Basic calls
         env:
-          QWEATHER_E2E_BINARY: ${{ runner.temp }}/qweather
+          QWEATHER_E2E_BINARY: ${{ runner.temp }}/release-extract/qweather-cli_${{ inputs.version }}_linux_amd64/qweather
           QWEATHER_API_HOST: ${{ secrets.QWEATHER_API_HOST }}
           QWEATHER_API_KEY: ${{ secrets.QWEATHER_API_KEY }}
         run: go test -tags=e2e ./tests/e2e -run '^TestReleaseSmoke$' -count=1
@@ -93,5 +143,6 @@ jobs:
           {
             echo "Release v${VERSION} passed deterministic and approved live gates."
             echo "Validated source: ${GITHUB_SHA}"
-            echo "Artifact publication is not part of this workflow and remains owned by Issue #8."
+            echo "Retained artifact: qweather-release-${VERSION}-${GITHUB_SHA} (14 days)."
+            echo "Artifact publication and npm publication are not part of this workflow and remain owned by Issue #8."
           } >> "$GITHUB_STEP_SUMMARY"

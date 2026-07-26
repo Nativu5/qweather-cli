@@ -13,6 +13,8 @@ The read-only workflow may be merged before release credentials are provisioned.
 Issue #20 must be completed before the first real release: it adds a supported
 required-reviewer rule and the two Environment-scoped secrets. Until then, do
 not dispatch the live gate and do not treat the repository as release ready.
+Issue #8's package job now produces and retains the exact six-platform artifact
+set for 14 days; its publish workflow consumes that set without rebuilding.
 
 ## Roles and durable records
 
@@ -84,9 +86,11 @@ is exactly `refs/heads/release/v<version>`. It then:
 
 1. reruns the same deterministic gates used by PR CI;
 2. waits for approval on the protected `qweather-release-smoke` Environment;
-3. builds the binary from the selected release commit;
-4. runs the three sequential Basic smoke calls with `--no-cache`; and
-5. records a read-only `release ready` status for that exact SHA.
+3. double-builds all six release targets and proves byte-for-byte equality;
+4. uploads the first artifact set with a 14-day retention;
+5. extracts the Linux amd64 binary from that exact artifact and runs the three
+   sequential Basic smoke calls with `--no-cache`; and
+6. records a `release ready` status for that exact SHA.
 
 The Environment supplies `QWEATHER_API_HOST` and `QWEATHER_API_KEY`. Do not put
 either value in workflow inputs, repository variables, Issue/PR text, command
@@ -97,8 +101,8 @@ without recording why the prior result is unusable.
 
 After every job passes, record the workflow URL, `X.Y.Z`, release branch, and
 full `GITHUB_SHA` on the release Issue and #8. Confirm the branch still points to
-that SHA. The gate uploads no artifact and has no permission to create tags,
-Releases, packages, or npm publications.
+that SHA, and record the retained artifact name. The gate has no permission to
+create tags, Releases, packages, or npm publications.
 
 Publication automation added by #8 must remain independently triggered, accept
 only `release/vX.Y.Z`, and verify a passing Release gate for the same version and

@@ -1,0 +1,32 @@
+{
+  "name": "qweather-cli",
+  "version": "0.1.0",
+  "description": "Install and launch the QWeather CLI release binary",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "bin": {
+    "qweather": "bin/qweather.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "install.js",
+    "checksums.txt",
+    "npm-shrinkwrap.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node install.js",
+    "test": "node --test",
+    "pack:check": "node scripts/check-pack.js --checksums test/fixtures/checksums.txt"
+  },
+  "engines": {
+    "node": ">=22.21.0"
+  },
+  "packageManager": "npm@11.16.0",
+  "dependencies": {
+    "tar": "7.5.22",
+    "yauzl": "3.4.0"
+  }
+}
