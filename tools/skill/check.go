@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-
-	"go.yaml.in/yaml/v3"
+	"unicode"
+	"unicode/utf8"
 )
 
 var curatedReferenceNames = []string{
@@ -29,9 +29,6 @@ func checkSkill(root string) error {
 	if err := checkSkillStructure(root); err != nil {
 		return err
 	}
-	if err := checkSnapshot(root); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -48,14 +45,19 @@ func checkSkillStructure(root string) error {
 	if err != nil {
 		return fmt.Errorf("read Skill references: %w", err)
 	}
-	markdown := make([]string, 0)
+	referenceNames := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") {
-			markdown = append(markdown, entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			return fmt.Errorf("inspect Skill reference %s: %w", entry.Name(), err)
 		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("Skill reference %s must be a regular file", entry.Name())
+		}
+		referenceNames = append(referenceNames, entry.Name())
 	}
-	if !reflect.DeepEqual(markdown, curatedReferenceNames) {
-		return fmt.Errorf("curated one-level reference set = %v, want %v", markdown, curatedReferenceNames)
+	if !reflect.DeepEqual(referenceNames, curatedReferenceNames) {
+		return fmt.Errorf("curated one-level reference set = %v, want %v", referenceNames, curatedReferenceNames)
 	}
 	skillBytes, err := os.ReadFile(filepath.Join(skillRoot, "SKILL.md"))
 	if err != nil {
@@ -83,11 +85,8 @@ func checkSkillStructure(root string) error {
 }
 
 type skillFrontmatter struct {
-	Name         string         `yaml:"name"`
-	Description  string         `yaml:"description"`
-	License      any            `yaml:"license,omitempty"`
-	AllowedTools any            `yaml:"allowed-tools,omitempty"`
-	Metadata     map[string]any `yaml:"metadata,omitempty"`
+	Name        string
+	Description string
 }
 
 func validateSkillFrontmatter(content string) error {
@@ -99,11 +98,26 @@ func validateSkillFrontmatter(content string) error {
 		return fmt.Errorf("SKILL.md YAML frontmatter is not closed")
 	}
 	frontmatterText := content[len("---\n") : len("---\n")+frontmatterEnd]
-	decoder := yaml.NewDecoder(strings.NewReader(frontmatterText))
-	decoder.KnownFields(true)
 	var frontmatter skillFrontmatter
-	if err := decoder.Decode(&frontmatter); err != nil {
-		return fmt.Errorf("decode SKILL.md YAML frontmatter: %w", err)
+	for _, line := range strings.Split(frontmatterText, "\n") {
+		key, value, ok := strings.Cut(line, ": ")
+		if !ok || !isRestrictedYAMLPlainScalar(value) {
+			return fmt.Errorf("SKILL.md frontmatter line %q must use a non-empty plain scalar", line)
+		}
+		switch key {
+		case "name":
+			if frontmatter.Name != "" {
+				return fmt.Errorf("SKILL.md frontmatter repeats name")
+			}
+			frontmatter.Name = value
+		case "description":
+			if frontmatter.Description != "" {
+				return fmt.Errorf("SKILL.md frontmatter repeats description")
+			}
+			frontmatter.Description = value
+		default:
+			return fmt.Errorf("SKILL.md frontmatter contains unexpected field %q", key)
+		}
 	}
 	if !regexp.MustCompile(`^[a-z0-9-]{1,64}$`).MatchString(frontmatter.Name) || strings.HasPrefix(frontmatter.Name, "-") || strings.HasSuffix(frontmatter.Name, "-") || strings.Contains(frontmatter.Name, "--") {
 		return fmt.Errorf("SKILL.md frontmatter name %q is not valid hyphen-case", frontmatter.Name)
@@ -116,4 +130,24 @@ func validateSkillFrontmatter(content string) error {
 		return fmt.Errorf("SKILL.md frontmatter description must be non-empty, at most 1024 bytes, and contain no angle brackets")
 	}
 	return nil
+}
+
+func isRestrictedYAMLPlainScalar(value string) bool {
+	if value == "" || value != strings.TrimSpace(value) || !utf8.ValidString(value) {
+		return false
+	}
+	first, _ := utf8.DecodeRuneInString(value)
+	if !unicode.IsLetter(first) || strings.HasSuffix(value, ":") || strings.Contains(value, ": ") || strings.Contains(value, " #") {
+		return false
+	}
+	switch strings.ToLower(value) {
+	case "null", "true", "false", "yes", "no", "on", "off":
+		return false
+	}
+	for _, r := range value {
+		if unicode.IsControl(r) || strings.ContainsRune("[]{}&*!|>'\"%@`", r) {
+			return false
+		}
+	}
+	return true
 }

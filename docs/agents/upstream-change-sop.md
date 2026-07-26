@@ -21,9 +21,9 @@ Create or claim an Issue before changing a contract. Record:
 - whether the change might be breaking, quota-sensitive, security-sensitive,
   or distribution-sensitive.
 
-The distributed OpenAPI manifest is the preferred source for the current pin
-once it exists. Until then, use the pin recorded in the accepted design
-documents. Never compare only against a moving upstream branch.
+Use a full commit from an ignored upstream checkout when a focused investigation
+needs fixed evidence. Never compare only against a moving upstream branch, and
+never treat an upstream document as an executable registry.
 
 ## 2. Prepare fixed source revisions
 
@@ -52,7 +52,9 @@ git -C .cache/qweather-dev-site-source grep -n 'operationId\|deprecated' \
 
 Inspect related English and Chinese prose under `content/en/docs/` and
 `content/zh/docs/`. When the rendered official site disagrees with OpenAPI,
-record the conflict rather than choosing the more convenient source.
+record the conflict rather than choosing the more convenient source. The Skill
+links to current official pages and does not distribute either source as a
+snapshot.
 
 Validate the candidate with the upstream repository's own pinned dependencies
 in a detached review worktree:
@@ -67,7 +69,8 @@ git -C .cache/qweather-dev-site-source worktree remove \
 ```
 
 An upstream test pass establishes upstream self-consistency only. It does not
-prove compatibility with this CLI or approve a new distributed snapshot.
+prove compatibility with this CLI or authorize a change to the curated
+registry, generated references, or official links.
 
 ## 3. Classify every observed delta
 
@@ -80,7 +83,7 @@ rendered prose. One upstream commit may contain several classes.
 | Parameter | requiredness, name, type, enum, range, format, default, path/query placement, coordinate order | catalog flags/targets, compiler and validation, cache-key semantics, focused mapping tests |
 | Schema or example | response status/content type, field type, required field, enum, No Data shape, Response Family, example body | response classification, Capability Text templates, generic remainder/fallback, output/error handling, fixtures, generated field/reference material |
 | Prose or policy | authentication, API Host, geography, pricing, quota, cache, Attribution, Product Gate, security guidance | config/network/cache policy, Billing Group, Product Gate, design contracts and Skill guidance |
-| License or terms | content license, API EULA, Geo storage restriction, trademark or redistribution term | `NOTICE`, manifest/distribution scope, cache/privacy rules; pause distribution when authority is unclear |
+| License or terms | content license, API EULA, Geo storage restriction, trademark or redistribution term | links-only documentation scope, cache/privacy rules; pause distribution when authority is unclear |
 
 Do not infer a stable project Capability ID from upstream `operationId`. Do not
 make a deprecated operation executable merely because it remains in OpenAPI.
@@ -104,7 +107,7 @@ required repair or “no impact” with a reason:
   output-mode selection, Machine Result/Machine Problem schemas, Text
   presentation, stdout/stderr discipline, and exit meanings;
 - generated Skill command/schema references and their generator source;
-- the reviewed OpenAPI snapshot, manifest, source links, and `NOTICE`; and
+- official documentation links, focused research evidence, and the links-only distribution boundary; and
 - focused unit tests for registry validation, request compilation, response
   classification, cache behaviour, and public process behaviour.
 
@@ -134,10 +137,12 @@ Classify the project-facing effect before editing:
 - **Breaking change:** removal/rename, new required input, Machine Result/Machine
   Problem meaning change, or exit meaning change; follow the major-version rule
   in the CLI contract and provide migration guidance.
-- **Upstream ambiguity or legal risk:** keep the existing pin, mark the Issue
-  blocked, and seek authoritative clarification. Do not guess or distribute.
+- **Upstream ambiguity or legal risk:** keep the current CLI behavior and links,
+  mark the Issue blocked, and seek authoritative clarification. Do not guess or
+  distribute upstream content.
 
-A newer upstream commit is not by itself a reason to change the CLI or snapshot.
+A newer upstream commit is not by itself a reason to change the CLI or its
+official documentation links.
 
 ## 6. Repair and verify
 
@@ -147,10 +152,11 @@ example or schema changes, execute the affected Capability entry template,
 verify that all fields appear in either its primary layout or `Additional
 fields`, and exercise generic fallback when the structural assumption changed.
 Add a full Text golden only when the Capability represents one of the three
-maintained golden families or the common layout itself changed. When the
-distributed OpenAPI snapshot changes, verify every manifest hash, referenced
-local example, locale comparison, attribution file, and pinned source URL; run
-generation twice and require the second run to produce no diff.
+maintained golden families or the common layout itself changed. When official
+documentation changes without a CLI contract change, update only the affected
+links or verification dates and record the fixed research evidence in the
+Issue. Do not copy an upstream snapshot into the Skill. Run generation twice
+and require the second run to produce no diff.
 
 Run the deterministic local/CI gates from the development SOP. Live QWeather
 smoke is reserved for the explicit pre-release workflow and remains limited to
@@ -164,5 +170,6 @@ acceptance criteria. Post both reports and any material-fix re-review on the PR.
 Record unresolved locale or prose/spec conflicts in the Issue and in user-facing
 documentation where they affect reliable use.
 
-After merge, update the current upstream pin only if the reviewed snapshot was
-actually accepted. Never advance a pin merely to make drift checks pass.
+After merge, update any recorded research commit only when the investigation
+actually used and accepted that fixed evidence. Never advance a research pin
+merely to make a documentation link or generated check pass.

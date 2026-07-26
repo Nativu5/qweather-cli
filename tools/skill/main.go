@@ -10,7 +10,6 @@ import (
 
 const (
 	defaultSkillPath = "skills/qweather"
-	pinnedCommit     = "02bb257a032c503c65924005da6ebca48d94b390"
 )
 
 func main() {
@@ -22,7 +21,7 @@ func main() {
 
 func run(arguments []string) error {
 	if len(arguments) == 0 {
-		return errors.New("expected generate, check, or sync-openapi")
+		return errors.New("expected generate or check")
 	}
 	switch arguments[0] {
 	case "generate":
@@ -45,19 +44,7 @@ func run(arguments []string) error {
 			return errors.New("check accepts no positional arguments")
 		}
 		return checkSkill(filepath.Clean(*root))
-	case "sync-openapi":
-		flags := flag.NewFlagSet("sync-openapi", flag.ContinueOnError)
-		root := flags.String("root", ".", "repository root")
-		source := flags.String("source", ".cache/qweather-dev-site-source", "official qwd/dev-site checkout")
-		commit := flags.String("commit", pinnedCommit, "full reviewed upstream commit")
-		if err := flags.Parse(arguments[1:]); err != nil {
-			return err
-		}
-		if flags.NArg() != 0 {
-			return errors.New("sync-openapi accepts no positional arguments")
-		}
-		return syncOpenAPI(filepath.Clean(*root), filepath.Clean(*source), *commit)
 	default:
-		return fmt.Errorf("unknown subcommand %q; expected generate, check, or sync-openapi", arguments[0])
+		return fmt.Errorf("unknown subcommand %q; expected generate or check", arguments[0])
 	}
 }

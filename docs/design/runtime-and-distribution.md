@@ -200,28 +200,21 @@ skills/qweather/
     ├── places-and-errors.md
     ├── command-reference.md
     ├── result-schema.md
-    ├── products-and-attribution.md
-    └── upstream/
-        └── openapi/
-            ├── NOTICE.md
-            ├── manifest.json
-            ├── qweather-apis-en.yml
-            ├── qweather-apis-zh.yml
-            └── examples/
-                └── *.json
+    └── products-and-attribution.md
 ```
 
 `SKILL.md` is concise and contains only triggering metadata, command-selection workflow, installation check, place-error handling, Product Gate rules, cache-refresh guidance, and Attribution requirements. Detailed material is loaded from one-level references only when relevant.
 
 `command-reference.md`, schema tables, and stable problem-code tables are generated from the Go registry and contract definitions. Human workflow guidance remains hand-written. CI regenerates these files and fails when tracked output differs.
 
-The `upstream/openapi/` directory is a verbatim snapshot from one reviewed commit of the official [`qwd/dev-site`](https://github.com/qwd/dev-site) repository. It contains both locale specifications and all 53 JSON files referenced by their relative `externalValue` links; generated upstream JSON and the rest of the site are excluded. The snapshot is distributed with the Skill only, not embedded in the Go binary or npm adapter.
+The Skill does not distribute QWeather OpenAPI files, copied response examples,
+or another upstream documentation snapshot. Generated and curated references
+link to the current official QWeather web documentation when an Agent needs a
+provider field description, response schema, example, or volatile policy fact.
+This links-only boundary avoids a second synchronization and consistency
+contract inside the Skill.
 
-A deterministic maintainer sync pins the full upstream commit and records every distributed file's path, byte size, and SHA256 in `manifest.json`; CI verifies the snapshot and rejects unreviewed drift, missing local examples, or remote schema/example references. `NOTICE.md` records QWeather as the creator, the pinned source URLs and commit, the applicable [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) content license, unchanged status, and the separate QWeather Developers EULA boundary for API service and data use. The initial reviewed pin is `02bb257a032c503c65924005da6ebca48d94b390`.
-
-The English and Chinese specifications have the same operation inventory but are not structurally identical. Sync validation compares their path, method, operation ID, lifecycle, parameter, and response sets and reports schema differences for review; it never merges the locales or treats one as a lossless translation of the other.
-
-Agents explicitly pass `--output text` for routine reading, select `--output json` when they need exact field paths or JSON value types, and reserve `--output body` for byte-exact successful provider data. They use the generated command reference for the supported CLI surface and may consult the bundled OpenAPI only for upstream parameters, response schemas, and field descriptions. Deprecated paths or other specification details never imply an executable capability. For conflicts, prose-only constraints, and volatile pricing, geography, alert, or lifecycle facts, the curated project contract and current official documentation take precedence.
+Agents explicitly pass `--output text` for routine reading, select `--output json` when they need exact field paths or JSON value types, and reserve `--output body` for byte-exact successful provider data. They use the generated command reference for the supported CLI surface and may follow its official links for upstream parameters, response schemas, and field descriptions. Deprecated paths or other documentation details never imply an executable capability. For conflicts, prose-only constraints, and volatile pricing, geography, alert, or lifecycle facts, the curated project contract and current official documentation take precedence.
 
 The rest of the official site checkout and detailed research reports are not shipped. Curated references include official hyperlinks and `last_verified` dates.
 
@@ -326,7 +319,7 @@ The project uses focused unit tests and a small approved smoke surface:
 - three full Text goldens representing a current object, an array forecast, and a deeply nested `metadata-v1` response;
 - representative Text/Machine Result/Machine Problem, Provider Body, fallback, and exit-code behaviour;
 - npm platform selection, SHA256 success/failure, and missing-binary guidance;
-- pinned OpenAPI snapshot integrity, local-example closure, locale contract comparison, source attribution, and reviewed-drift detection;
+- generated Skill reference drift, curated layout, metadata, and version synchronization;
 - cross-compilation of the six release targets; and
 - manual or approved smoke checks for Geo plus current weather, one `metadata-v1` Capability, and npm install/version.
 

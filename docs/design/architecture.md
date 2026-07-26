@@ -96,7 +96,7 @@ The registry is compiled-in, project-owned Go data. Each record contains:
 
 The registry produces the Cobra leaves, `capability list/show`, generated Skill references, and table-driven coverage tests. Registry validation also proves that every Current Capability has exactly one Text entry template. It is not loaded from the network at runtime.
 
-The official [English](https://github.com/qwd/dev-site/blob/02bb257a032c503c65924005da6ebca48d94b390/assets/openapi/qweather-apis-en.yml) and [Chinese](https://github.com/qwd/dev-site/blob/02bb257a032c503c65924005da6ebca48d94b390/assets/openapi/qweather-apis-zh.yml) OpenAPI specifications are evidence, not executable configuration. They contain equivalent path-template pairs such as `/v7/weather/{days}` and `/v7/weather/{hours}`, a `format: date` mismatch with QWeather's `yyyyMMdd` wire format, and constraints that only appear in prose. The two locales also have reviewed structural differences and must not be silently merged. CI may compare a reviewed, pinned upstream snapshot with the registry, but upstream changes require review before becoming executable. Verbatim specifications and their local examples may be shipped with the Skill for offline field and schema lookup; neither the installed CLI nor the Skill discovers commands from them at runtime.
+The official [English](https://dev.qweather.com/en/docs/api/) and [Chinese](https://dev.qweather.com/docs/api/) API documentation is evidence, not executable configuration. Historical review found equivalent path-template pairs such as `/v7/weather/{days}` and `/v7/weather/{hours}`, a `format: date` mismatch with QWeather's `yyyyMMdd` wire format, and constraints that only appear in prose. Upstream changes require review before becoming executable. The Skill links to current official pages when provider details are needed; it does not copy specifications or examples, and neither the installed CLI nor the Skill discovers commands from documentation at runtime.
 
 ### Configuration module
 
@@ -127,7 +127,7 @@ The local filesystem is a local-substitutable dependency. Tests exercise the cac
 
 The npm adapter is a distribution adapter, not a second implementation of the client. During an explicit npm installation it selects one release asset, downloads it, verifies an npm-embedded SHA256, and installs it atomically. During normal execution it only forwards arguments, signals, stdout, stderr, and exit status to the Go binary.
 
-The Skill is a concise agent workflow. It selects CLI commands, explicitly passes `--output text` for routine reading, requests `--output json` when exact field paths or JSON types matter, observes Product Gates, preserves Attribution, and loads detailed references only when needed. It includes a pinned, verbatim OpenAPI snapshot for provider-field lookup: English and Chinese specifications, their referenced local examples, a manifest, and upstream source and license attribution. It does not install software silently, construct provider URLs, hold credentials, or bundle the rest of the upstream documentation site.
+The Skill is a concise agent workflow. It selects CLI commands, explicitly passes `--output text` for routine reading, requests `--output json` when exact field paths or JSON types matter, observes Product Gates, preserves Attribution, and loads detailed references only when needed. It links to current official QWeather web documentation for provider details instead of distributing specifications or examples. It does not install software silently, construct provider URLs, hold credentials, scrape documentation, or bundle upstream documentation content.
 
 ## Request flow
 
@@ -197,9 +197,9 @@ Package seams may be adjusted during implementation when a proposed package woul
 
 ## Documentation discipline
 
-The official `qwd/dev-site` checkout lives under `.cache/qweather-dev-site-source/`, and detailed research reports live under `docs/research/`; both are maintainer evidence and remain ignored. The project does not maintain a separate page crawler or distribute the upstream site checkout.
+An official `qwd/dev-site` checkout may live under ignored `.cache/` paths for a focused maintainer investigation, and detailed research reports live under `docs/research/`. Neither is distributed with the Skill. The project does not maintain a page crawler, documentation mirror, or vendored OpenAPI/example snapshot.
 
-The Skill may distribute only the reviewed, pinned English and Chinese OpenAPI specifications, the 53 local JSON examples referenced through `externalValue`, a manifest, and a source and license notice. Those copies remain unmodified upstream documentation, are updated only through an explicit review, and are never an executable registry or runtime network dependency. Other formal Skill references retain only operationally important facts, include direct official links, and record `last_verified` where facts are likely to change.
+Formal Skill references retain only operationally important facts, include direct official links, and record `last_verified` where facts are likely to change. Official documentation remains review evidence and never becomes an executable registry or runtime scraping dependency.
 
 For volatile facts such as pricing, supported regions, alert types, and deprecation dates, the Skill should consult the official source when the installed catalog is insufficient. The executable registry never changes itself from live documentation.
 
@@ -212,6 +212,7 @@ For volatile facts such as pricing, supported regions, alert types, and deprecat
 - [Persist capability-aware data caches but never Geo Data](../adr/0005-cache-data-but-not-geo-data.md)
 - [Limit live E2E coverage to capabilities with a free allowance](../adr/0006-limit-live-e2e-coverage-for-paid-only-capabilities.md)
 - [Prefer Text Views with explicit machine output](../adr/0007-prefer-text-views-with-explicit-machine-output.md)
+- [Link to official documentation instead of vendoring upstream snapshots](../adr/0008-link-to-official-documentation.md)
 
 ## Primary QWeather references
 
