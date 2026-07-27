@@ -17,30 +17,36 @@ authentication, validation, caching, presentation, and error classification.
    as the secret-free template. Copy it to a local path, replace its
    placeholders, and configure exactly one authentication method. Never print
    or expose credential values.
-3. Select only a Current Capability from
+3. Before any weather query, run `qweather config check --output json` and
+   verify the effective configuration source. When using a non-default file,
+   set `QWEATHER_CONFIG` or pass the same `--config` path to both the preflight
+   and every subsequent command.
+4. Select only a Current Capability from
    [command-reference.md](references/command-reference.md). Use `qweather
    capability list --output json` or `qweather capability show <id> --output
    json` for offline discovery when needed. Tombstones are never executable.
-4. Choose the exact target kind. Read
+5. Choose the exact target kind. Read
    [places-and-errors.md](references/places-and-errors.md) before using a human
    place name, resolving an ambiguity, or handling a non-zero result.
-5. Apply Product Gates before network I/O. Read
+6. Read [common-tasks.md](references/common-tasks.md) before answering a
+   mountain or scenic-area weather request, selecting a daily forecast for a
+   target date, or degrading from grid weather to a nearby-city trend.
+7. Apply Product Gates before network I/O. Read
    [products-and-attribution.md](references/products-and-attribution.md) for
    Marine, Solar, Storm, Account, cache privacy, and Attribution rules.
-6. Pass an output mode explicitly:
+8. Pass an output mode explicitly:
    - `--output text` for routine human reading;
    - `--output json` when exact field paths, JSON types, or automation matter;
    - `--output body` only for byte-exact successful provider data.
-7. Use the default cache unless the user deliberately requests `--refresh` or
+9. Use the default cache unless the user deliberately requests `--refresh` or
    `--no-cache`. Never retry automatically.
-8. Run one composed command. Preserve stdout as data and stderr as diagnostics.
+10. Run one composed command. Preserve stdout as data and stderr as diagnostics.
    For JSON automation, branch on the Machine Problem `code`, not message text.
-9. Preserve complete Attribution whenever QWeather data is shown, transformed,
+11. Preserve complete Attribution whenever QWeather data is shown, transformed,
    stored, or shared.
 
-See [common-tasks.md](references/common-tasks.md) for command and UNIX-pipeline
-patterns. See [result-schema.md](references/result-schema.md) for Machine Result,
-Machine Problem, and stable problem-code fields.
+See [result-schema.md](references/result-schema.md) for Machine Result, Machine
+Problem, and stable problem-code fields.
 
 ## Official documentation boundary
 
