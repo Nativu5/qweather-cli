@@ -6,10 +6,19 @@ Pass `--output text` for reading and `--output json` for automation. These
 examples never embed credentials; configuration and authentication remain owned
 by the CLI.
 
+## Contents
+
+- [Validate local setup](#validate-local-setup)
+- [Routine weather and air queries](#routine-weather-and-air-queries)
+- [Mountain and scenic-area forecasts](#mountain-and-scenic-area-forecasts)
+- [UNIX pipelines](#unix-pipelines)
+- [Freshness and cache control](#freshness-and-cache-control)
+
 ## Validate local setup
 
-Before the first weather command, validate the same effective configuration
-that the query will use:
+Before the first weather command in a task, and again whenever the config path,
+profile, or relevant environment selection changes, validate the same effective
+configuration that the query will use:
 
 ```sh
 qweather config check --output json
@@ -87,9 +96,13 @@ Choose the smallest available forecast tier that covers `requiredDays`:
 | 11–15 | city daily, `--days 15` |
 | 16–30 | city daily, `--days 30` |
 
-The city tiers are an explicit degradation because grid daily weather currently
-offers only 3- and 7-day tiers. If `requiredDays` is outside 1–30, report that
-the current CLI cannot provide it; do not substitute a shorter forecast.
+The city tiers are an explicit degradation because
+[grid daily weather](https://dev.qweather.com/docs/api/weather/grid-weather-daily-forecast/)
+currently offers only 3- and 7-day tiers. Use
+[city daily weather](https://dev.qweather.com/docs/api/weather/weather-daily-forecast/)
+only after grid coverage is insufficient. If `requiredDays` is outside 1–30,
+report that the current CLI cannot provide it; do not substitute a shorter
+forecast.
 
 Treat a city forecast beyond grid coverage only as the regional trend for the
 verified nearby county or city, never as an exact scenic-area forecast. If the

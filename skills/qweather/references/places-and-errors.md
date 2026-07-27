@@ -49,10 +49,12 @@ map capability such as AMap to locate the intended place, then disclose that
 source with the latitude-first coordinate. Do not silently substitute a nearby
 or similarly named place.
 
-Geo capabilities have no cache and each request consumes QWeather API quota.
-Reuse an exact Location ID or coordinate already supplied or resolved in the
-current task instead of repeating a Geo lookup. Geo Data remains
-invocation-scoped and must not be persisted or indexed.
+The [generated command reference](command-reference.md) marks Geo capabilities
+`cache: disabled`; each provider-bound lookup is an API request under
+[QWeather pricing](https://dev.qweather.com/docs/finance/pricing/). Reuse an
+exact Location ID or coordinate already supplied or resolved in the current
+task instead of repeating a Geo lookup. Geo Data remains invocation-scoped and
+must not be persisted or indexed.
 
 ## Domain-specific targets
 
