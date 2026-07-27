@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -68,6 +69,81 @@ func writePrivateKey(t *testing.T, mode os.FileMode) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestLoadReportsAbsentConfigurationSources(t *testing.T) {
+	root := t.TempDir()
+	configPath := filepath.Join(root, "config", "qweather", "config.toml")
+	options := Options{
+		LookupEnv: lookup(nil),
+		UserConfigDir: func() (string, error) {
+			return filepath.Join(root, "config"), nil
+		},
+		UserCacheDir: func() (string, error) {
+			return filepath.Join(root, "cache"), nil
+		},
+	}
+
+	_, _, err := Load(context.Background(), options)
+	if err == nil || !strings.Contains(err.Error(), "QWeather is not configured") {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("Load() error kind = %v", err)
+	}
+	if _, statErr := os.Stat(configPath); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("default configuration file was created: %v", statErr)
+	}
+}
+
+func TestLoadWithoutFilePreservesEnvironmentConfigurationBoundaries(t *testing.T) {
+	tests := []struct {
+		name        string
+		environment map[string]string
+		wantError   string
+	}{
+		{
+			name: "complete API key configuration",
+			environment: map[string]string{
+				"QWEATHER_API_HOST": "example.qweatherapi.com",
+				"QWEATHER_API_KEY":  "environment-key",
+			},
+		},
+		{
+			name:        "partial provider configuration",
+			environment: map[string]string{"QWEATHER_API_KEY": "environment-key"},
+			wantError:   "api_host must be an account-specific hostname",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			effective, diagnostics, err := Load(context.Background(), testOptions(t, "", test.environment))
+			if test.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), test.wantError) {
+					t.Fatalf("Load() error = %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if effective.ConfigLoaded || effective.AuthMethod != auth.MethodAPIKey {
+				t.Fatalf("effective = %#v", effective)
+			}
+			if diagnostics.ConfigSource != "default" || diagnostics.AuthSource != "QWEATHER_API_KEY" || !diagnostics.SecretPresent {
+				t.Fatalf("diagnostics = %#v", diagnostics)
+			}
+		})
+	}
+}
+
+func TestLoadReportsExplicitlySelectedMissingFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing.toml")
+	_, _, err := Load(context.Background(), testOptions(t, path, nil))
+	if err == nil || !strings.Contains(err.Error(), "read configuration file "+path) {
+		t.Fatalf("Load() error = %v", err)
+	}
 }
 
 func TestLoadRejectsUnknownTOMLFields(t *testing.T) {

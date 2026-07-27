@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -131,6 +132,19 @@ func TestRuntimeMapsConfigurationAndNetworkErrors(t *testing.T) {
 	})
 	if problem == nil || problem.ExitCode != 8 || problem.Code != "TIMEOUT" || !problem.Retryable {
 		t.Fatalf("network problem = %#v", problem)
+	}
+}
+
+func TestCheckConfigReportsNotConfiguredProblem(t *testing.T) {
+	runtime := New(
+		func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+			return config.Effective{}, config.Diagnostics{}, fmt.Errorf("%w: no sources", config.ErrNotConfigured)
+		}, nil, nil,
+	)
+
+	_, problem := runtime.CheckConfig(context.Background(), cli.CommonOptions{})
+	if problem == nil || problem.ExitCode != 3 || problem.Code != "CONFIG_INVALID" || problem.Message != "QWeather is not configured" {
+		t.Fatalf("configuration problem = %#v", problem)
 	}
 }
 

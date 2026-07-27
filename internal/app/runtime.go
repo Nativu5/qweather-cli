@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -350,7 +351,11 @@ func checkProductGate(invocation cli.Invocation) *output.Problem {
 }
 
 func configProblem(capabilityID string, err error) *output.Problem {
-	problem := output.NewProblem(3, output.CodeConfigInvalid, "QWeather configuration is invalid")
+	message := "QWeather configuration is invalid"
+	if errors.Is(err, config.ErrNotConfigured) {
+		message = "QWeather is not configured"
+	}
+	problem := output.NewProblem(3, output.CodeConfigInvalid, message)
 	problem.Capability = capabilityID
 	problem.Details = map[string]any{"reason": fmt.Sprintf("%v", err)}
 	problem.Cause = err
