@@ -32,11 +32,13 @@ in memory, checks binary/npm/Skill version synchronization, and validates the
 curated one-level Skill layout and metadata. It performs no network request and
 does not modify tracked files.
 
-The deterministic CI job also runs `packages/npm` tests on Node.js 22.21.0 and
+The deterministic CI job also runs `packages/npm` tests on Node.js 22.11.0 and
 24.18.0 with npm 11.16.0, checks the allowlisted reproducible npm tarball, and
-runs the local-fixture install/version smoke. The smoke injects only a local
-archive into the tested installer seam; it never changes the production fixed
-GitHub download URL and never calls QWeather.
+runs the local-fixture install/version smoke. The npm tests cover standard and
+npm-lifecycle proxy configuration resolution, HTTPS redirect handling, and
+bounded streaming through the `undici@7` dispatcher. The smoke injects only a
+local archive into the tested installer seam; it never changes the production
+fixed GitHub download URL and never calls QWeather.
 
 The tagged command compiles the E2E package with a regular expression that
 matches no tests. It validates build compatibility without reading live-test

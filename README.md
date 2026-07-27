@@ -33,7 +33,7 @@ QWeather CLI 提供以下数据查询和账户管理功能：
 
 ```sh
 npx skills add Nativu5/qweather-cli
-npm install --global qweather-cli@0.1.0
+npm install --global qweather-cli
 ```
 
 第一条命令将 Skill 安装到 `npx skills` 自动识别的 Agent 环境中，第二条命令安装 `qweather` CLI 二进制。两条命令都不会读取或写入 QWeather 凭据。

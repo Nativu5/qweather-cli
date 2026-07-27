@@ -33,7 +33,7 @@ Install the `qweather` Skill for your Agent and the CLI binary:
 
 ```sh
 npx skills add Nativu5/qweather-cli
-npm install --global qweather-cli@0.1.0
+npm install --global qweather-cli
 ```
 
 The first command installs the Skill into the Agent environment detected by `npx skills`; the second installs the `qweather` CLI binary. Neither command reads or writes QWeather credentials.

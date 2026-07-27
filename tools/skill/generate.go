@@ -52,30 +52,7 @@ func writeGeneratedReferences(root string) error {
 			return err
 		}
 	}
-	return syncSkillInstallVersion(root)
-}
-
-func syncSkillInstallVersion(root string) error {
-	version, err := readVersion(root)
-	if err != nil {
-		return err
-	}
-	path := filepath.Join(root, defaultSkillPath, "SKILL.md")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read Skill instructions: %w", err)
-	}
-	pattern := regexp.MustCompile(`npm install --global qweather-cli@[^\x60\s]+`)
-	matches := pattern.FindAllIndex(data, -1)
-	if len(matches) != 1 {
-		return fmt.Errorf("SKILL.md must contain exactly one fixed-version npm install command; found %d", len(matches))
-	}
-	want := []byte("npm install --global qweather-cli@" + version)
-	updated := pattern.ReplaceAll(data, want)
-	if bytes.Equal(updated, data) {
-		return nil
-	}
-	return writeFileAtomically(path, updated, 0o644)
+	return nil
 }
 
 func checkGeneratedReferences(root string) error {
@@ -117,15 +94,12 @@ func checkVersionSync(root string) error {
 	if err != nil {
 		return fmt.Errorf("read Skill instructions: %w", err)
 	}
-	want := "npm install --global qweather-cli@" + version
-	if count := bytes.Count(skillBytes, []byte(want)); count != 1 {
-		return fmt.Errorf("SKILL.md must contain exactly one fixed-version install command %q; found %d", want, count)
+	const installCommand = "npm install --global qweather-cli"
+	if count := bytes.Count(skillBytes, []byte(installCommand)); count != 1 {
+		return fmt.Errorf("SKILL.md must contain exactly one version-neutral install command %q; found %d", installCommand, count)
 	}
-	installPattern := regexp.MustCompile(`npm install --global qweather-cli@[^\x60\s]+`)
-	for _, command := range installPattern.FindAllString(string(skillBytes), -1) {
-		if command != want {
-			return fmt.Errorf("Skill install version drift: found %q, want %q", command, want)
-		}
+	if bytes.Contains(skillBytes, []byte(installCommand+"@")) {
+		return fmt.Errorf("SKILL.md install command must not pin a package version")
 	}
 	return nil
 }

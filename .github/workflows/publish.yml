@@ -221,6 +221,4 @@ jobs:
           go run ./tools/release inspect --version "$VERSION" --output "$RUNNER_TEMP/public-readback"
 
       - name: Publish the exact npm package after public asset verification
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish "$RUNNER_TEMP/npm-stage" --provenance --access public
