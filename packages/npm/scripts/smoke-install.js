@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
 const fs = require('node:fs/promises');
 const os = require('node:os');
@@ -10,6 +9,7 @@ const tar = require('tar');
 const { promisify } = require('node:util');
 
 const { selectAsset } = require('../lib/platform.js');
+const { fixtureManifest } = require('./fixture-manifest.js');
 const { stagePackage } = require('./stage-package.js');
 
 const execFileAsync = promisify(execFile);
@@ -38,7 +38,8 @@ async function smokeInstall(binary) {
     ]);
 
     const checksums = path.join(temporaryRoot, 'checksums.txt');
-    await fs.writeFile(checksums, await fixtureManifest(version, selected.asset, archive));
+    const selectedBytes = await fs.readFile(archive);
+    await fs.writeFile(checksums, fixtureManifest(version, new Map([[selected.asset, selectedBytes]])));
     const stage = path.join(temporaryRoot, 'stage');
     await stagePackage({ packageRoot, repositoryRoot, output: stage, checksums });
     const packDirectory = path.join(temporaryRoot, 'pack');
@@ -73,22 +74,6 @@ async function smokeInstall(binary) {
   } finally {
     await fs.rm(temporaryRoot, { recursive: true, force: true });
   }
-}
-
-async function fixtureManifest(version, selectedAsset, archive) {
-  const names = [
-    selectAsset(version, 'darwin', 'arm64').asset,
-    selectAsset(version, 'darwin', 'x64').asset,
-    selectAsset(version, 'linux', 'arm64').asset,
-    selectAsset(version, 'linux', 'x64').asset,
-    selectAsset(version, 'win32', 'arm64').asset,
-    selectAsset(version, 'win32', 'x64').asset,
-  ].sort();
-  const selectedBytes = await fs.readFile(archive);
-  return names.map((name) => {
-    const bytes = name === selectedAsset ? selectedBytes : Buffer.from(`local-fixture-only:${name}`);
-    return `${crypto.createHash('sha256').update(bytes).digest('hex')}  ${name}\n`;
-  }).join('');
 }
 
 function parseArguments(arguments_) {

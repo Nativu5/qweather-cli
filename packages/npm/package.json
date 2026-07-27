@@ -23,7 +23,7 @@
   "scripts": {
     "postinstall": "node install.js",
     "test": "node --test",
-    "pack:check": "node scripts/check-pack.js --checksums test/fixtures/checksums.txt"
+    "pack:check": "node scripts/check-pack.js"
   },
   "engines": {
     "node": ">=22.11.0"

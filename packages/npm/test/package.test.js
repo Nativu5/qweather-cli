@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
+const { fixtureManifest } = require('../scripts/fixture-manifest.js');
 const { stagePackage } = require('../scripts/stage-package.js');
 
 const packageRoot = path.resolve(__dirname, '..');
@@ -34,11 +35,14 @@ test('stagePackage produces the allowlisted publication tree with the embedded m
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'qweather-package-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const output = path.join(directory, 'stage');
+  const version = (await fs.readFile(path.join(repositoryRoot, 'VERSION'), 'utf8')).trim();
+  const checksums = path.join(directory, 'checksums.txt');
+  await fs.writeFile(checksums, fixtureManifest(version));
   await stagePackage({
     packageRoot,
     repositoryRoot,
     output,
-    checksums: path.join(packageRoot, 'test', 'fixtures', 'checksums.txt'),
+    checksums,
   });
 
   const files = await listFiles(output);

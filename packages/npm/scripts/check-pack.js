@@ -8,6 +8,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { promisify } = require('node:util');
 
+const { fixtureManifest } = require('./fixture-manifest.js');
 const { stagePackage } = require('./stage-package.js');
 
 const execFileAsync = promisify(execFile);
@@ -26,7 +27,7 @@ const expectedFiles = [
   'package.json',
 ].sort();
 
-async function checkPack(checksums) {
+async function checkPack() {
   const packageRoot = path.resolve(__dirname, '..');
   const repositoryRoot = path.resolve(packageRoot, '..', '..');
   const npmVersion = (await execFileAsync('npm', ['--version'])).stdout.trim();
@@ -35,6 +36,9 @@ async function checkPack(checksums) {
   }
   const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'qweather-npm-pack-'));
   try {
+    const version = (await fs.readFile(path.join(repositoryRoot, 'VERSION'), 'utf8')).trim();
+    const checksums = path.join(temporaryRoot, 'checksums.txt');
+    await fs.writeFile(checksums, fixtureManifest(version));
     const outputs = [];
     for (const name of ['first', 'second']) {
       const stage = path.join(temporaryRoot, `${name}-stage`);
@@ -63,10 +67,9 @@ async function checkPack(checksums) {
 }
 
 function parseArguments(arguments_) {
-  if (arguments_.length !== 2 || arguments_[0] !== '--checksums') {
-    throw new Error('usage: check-pack --checksums <file>');
+  if (arguments_.length !== 0) {
+    throw new Error('usage: check-pack');
   }
-  return path.resolve(arguments_[1]);
 }
 
 if (require.main === module) {
