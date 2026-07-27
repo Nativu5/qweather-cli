@@ -224,7 +224,7 @@ Agents explicitly pass `--output text` for routine reading, select `--output jso
 
 The rest of the official site checkout and detailed research reports are not shipped. Curated references include official hyperlinks and `last_verified` dates.
 
-If `qweather` is absent, the Skill prints a fixed-version npm installation command and waits for the user. It never installs software itself.
+If `qweather` is absent, the Skill prints a version-neutral npm installation command and waits for the user. It never installs software itself.
 
 ## npm adapter
 

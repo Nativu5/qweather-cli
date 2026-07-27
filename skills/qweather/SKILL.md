@@ -11,7 +11,7 @@ authentication, validation, caching, presentation, and error classification.
 ## Workflow
 
 1. Check whether `qweather` is available. If it is missing, tell the user to run
-   `npm install --global qweather-cli@0.1.0`, then wait. Never install software
+   `npm install --global qweather-cli`, then wait. Never install software
    implicitly.
 2. If the user chooses file-based configuration, use [config.toml](config.toml)
    as the secret-free template. Copy it to a local path, replace its

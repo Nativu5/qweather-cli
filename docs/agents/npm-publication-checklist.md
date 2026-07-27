@@ -41,7 +41,15 @@ later version.
 1. Immediately repeat the npm name and ownership check. The existing package
    must point to this repository and the requested version must be absent. Stop
    on any conflict or ambiguous registry response.
-2. Dispatch `publish.yml` with the version, gate run ID, and exact source SHA.
+2. Dispatch `publish.yml` on the exact release branch with the version, gate run ID, and source SHA:
+
+   ```sh
+   gh workflow run publish.yml \
+     --ref "release/vX.Y.Z" \
+     --field version=X.Y.Z \
+     --field gate_run_id=GATE_RUN_ID \
+     --field source_sha=FULL_SOURCE_SHA
+   ```
 3. The workflow revalidates the gate, verifies all six artifacts without
    rebuilding, refuses an existing tag, creates the immutable tag and Draft
    GitHub Release, uploads/read-backs the assets, publishes the Release, and

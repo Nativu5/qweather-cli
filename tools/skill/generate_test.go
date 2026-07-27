@@ -61,11 +61,11 @@ func TestCollectSchemaFieldsReportsMissingDescription(t *testing.T) {
 	}
 }
 
-func TestGenerateIsIdempotentAndSynchronizesVersion(t *testing.T) {
+func TestGenerateIsIdempotentAndPreservesVersionNeutralInstallCommand(t *testing.T) {
 	root := t.TempDir()
 	mustWriteTestFile(t, filepath.Join(root, "VERSION"), "2.3.4\n")
 	mustWriteTestFile(t, filepath.Join(root, "packages", "npm", "package.json"), "{\"version\":\"2.3.4\"}\n")
-	mustWriteTestFile(t, filepath.Join(root, defaultSkillPath, "SKILL.md"), "Install with `npm install --global qweather-cli@0.0.1`.\n")
+	mustWriteTestFile(t, filepath.Join(root, defaultSkillPath, "SKILL.md"), "Install with `npm install --global qweather-cli`.\n")
 
 	if err := writeGeneratedReferences(root); err != nil {
 		t.Fatal(err)
@@ -75,8 +75,8 @@ func TestGenerateIsIdempotentAndSynchronizesVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	second := readGeneratedTestFiles(t, root)
-	if !strings.Contains(second["SKILL.md"], "qweather-cli@2.3.4") {
-		t.Fatalf("Skill install command was not synchronized: %q", second["SKILL.md"])
+	if !strings.Contains(second["SKILL.md"], "npm install --global qweather-cli`") {
+		t.Fatalf("Skill install command was not preserved: %q", second["SKILL.md"])
 	}
 	for name, contents := range first {
 		if second[name] != contents {
@@ -88,6 +88,17 @@ func TestGenerateIsIdempotentAndSynchronizesVersion(t *testing.T) {
 	}
 	if err := checkVersionSync(root); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCheckVersionSyncRejectsVersionPinnedSkillInstallCommand(t *testing.T) {
+	root := t.TempDir()
+	mustWriteTestFile(t, filepath.Join(root, "VERSION"), "2.3.4\n")
+	mustWriteTestFile(t, filepath.Join(root, "packages", "npm", "package.json"), "{\"version\":\"2.3.4\"}\n")
+	mustWriteTestFile(t, filepath.Join(root, defaultSkillPath, "SKILL.md"), "Install with `npm install --global qweather-cli@2.3.4`.\n")
+
+	if err := checkVersionSync(root); err == nil || !strings.Contains(err.Error(), "must not pin") {
+		t.Fatalf("checkVersionSync error = %v, want version-pinning error", err)
 	}
 }
 
