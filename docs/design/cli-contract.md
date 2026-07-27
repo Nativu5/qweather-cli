@@ -246,7 +246,7 @@ These commands are offline and read the same compiled registry used for executio
 
 ### Configuration
 
-`qweather config check` runs the production loader and validator without creating a QWeather request. It may report whether a secret source is present, but never the secret value.
+`qweather config check` runs the production loader and validator without creating a QWeather request. It may report whether a secret source is present, but never the secret value. When the default file is absent and no provider or authentication environment variables are present, it returns exit 3 with `CONFIG_INVALID` and reports that QWeather is not configured; it never creates an empty configuration file. A complete environment-only configuration remains valid without a file.
 
 ### Cache
 

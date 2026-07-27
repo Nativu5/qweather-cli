@@ -24,6 +24,10 @@ const defaultProfile = "default"
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 var environmentNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+// ErrNotConfigured indicates that neither the default file nor an
+// environment-only provider or authentication configuration is present.
+var ErrNotConfigured = errors.New("QWeather is not configured")
+
 func Load(ctx context.Context, options Options) (Effective, Diagnostics, error) {
 	options = withDefaults(options)
 	if err := ctx.Err(); err != nil {
@@ -47,6 +51,9 @@ func Load(ctx context.Context, options Options) (Effective, Diagnostics, error) 
 	configuration, loaded, err := readConfiguration(options, configPath, configSource)
 	if err != nil {
 		return Effective{}, diagnostics, err
+	}
+	if !loaded && !hasProviderOrAuthenticationEnvironment(options.LookupEnv) {
+		return Effective{}, diagnostics, fmt.Errorf("%w: default configuration file %q does not exist and no provider or authentication environment variables are set", ErrNotConfigured, configPath)
 	}
 	profile := profileFile{}
 	if loaded {
@@ -286,6 +293,23 @@ func readConfiguration(options Options, path, source string) (fileConfig, bool, 
 		}
 	}
 	return configuration, true, nil
+}
+
+func hasProviderOrAuthenticationEnvironment(lookup func(string) (string, bool)) bool {
+	for _, name := range [...]string{
+		"QWEATHER_API_HOST",
+		"QWEATHER_PROJECT_ID",
+		"QWEATHER_CREDENTIAL_ID",
+		"QWEATHER_PRIVATE_KEY_FILE",
+		"QWEATHER_JWT_TTL",
+		"QWEATHER_API_KEY",
+		"QWEATHER_JWT",
+	} {
+		if _, present := lookup(name); present {
+			return true
+		}
+	}
+	return false
 }
 
 func selectAPIKey(lookup func(string) (string, bool), inline, environmentName string) (string, string, error) {

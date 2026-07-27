@@ -39,6 +39,8 @@ stale = false
 
 The file schema and effective runtime configuration are distinct types. The loader selects one profile and returns an immutable effective configuration with secret-free provenance.
 
+The default file may be absent when provider and authentication values are supplied entirely through the supported environment variables. If the default file does not exist and no provider or authentication environment variables are present, loading fails with a not-configured error; the loader does not continue validation with or write an empty configuration. An explicitly selected missing file remains a file-read error.
+
 ### Precedence
 
 Selector precedence:
@@ -87,6 +89,7 @@ The loader records that a secret source is present and where it came from, but n
 
 `qweather config check` invokes the same loader and validator used by data commands without invoking the HTTP adapter. It checks:
 
+- whether a default file or environment-only provider/authentication configuration is present;
 - TOML syntax, types, and unknown fields;
 - profile naming and existence;
 - API Host form and HTTPS-only request eligibility;
