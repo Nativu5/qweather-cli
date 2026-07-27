@@ -100,6 +100,8 @@ func TestLoadWithoutFilePreservesEnvironmentConfigurationBoundaries(t *testing.T
 	tests := []struct {
 		name        string
 		environment map[string]string
+		wantMethod  auth.Method
+		wantSource  string
 		wantError   string
 	}{
 		{
@@ -108,6 +110,17 @@ func TestLoadWithoutFilePreservesEnvironmentConfigurationBoundaries(t *testing.T
 				"QWEATHER_API_HOST": "example.qweatherapi.com",
 				"QWEATHER_API_KEY":  "environment-key",
 			},
+			wantMethod: auth.MethodAPIKey,
+			wantSource: "QWEATHER_API_KEY",
+		},
+		{
+			name: "complete external JWT configuration",
+			environment: map[string]string{
+				"QWEATHER_API_HOST": "example.qweatherapi.com",
+				"QWEATHER_JWT":      "header.payload.signature",
+			},
+			wantMethod: auth.MethodExternalJWT,
+			wantSource: "QWEATHER_JWT",
 		},
 		{
 			name:        "partial provider configuration",
@@ -128,10 +141,10 @@ func TestLoadWithoutFilePreservesEnvironmentConfigurationBoundaries(t *testing.T
 			if err != nil {
 				t.Fatal(err)
 			}
-			if effective.ConfigLoaded || effective.AuthMethod != auth.MethodAPIKey {
+			if effective.ConfigLoaded || effective.AuthMethod != test.wantMethod {
 				t.Fatalf("effective = %#v", effective)
 			}
-			if diagnostics.ConfigSource != "default" || diagnostics.AuthSource != "QWEATHER_API_KEY" || !diagnostics.SecretPresent {
+			if diagnostics.ConfigSource != "default" || diagnostics.AuthSource != test.wantSource || !diagnostics.SecretPresent {
 				t.Fatalf("diagnostics = %#v", diagnostics)
 			}
 		})
