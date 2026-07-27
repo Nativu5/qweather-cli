@@ -118,7 +118,7 @@ For locally generated JWTs:
 
 The implementation uses Go's standard `crypto/ed25519`, `crypto/x509`, `encoding/pem`, and Base64URL support. It does not require a JWT framework.
 
-There are no secret flags. On Unix, a configuration file containing any non-empty inline API key must be a regular file whose permissions do not allow group or other access (for example, mode `0600`). The configuration module never writes an effective configuration back to TOML. A future `config init`, if added, may create only a secret-free template.
+There are no secret flags. On Unix, a configuration file containing any non-empty inline API key must be a regular file whose permissions do not allow group or other access (for example, mode `0600`). The configuration module never writes an effective configuration back to TOML. The CLI has no `config init` command; users can copy the secret-free template shipped with the Skill. A future `config init`, if added, may create only a secret-free template.
 
 ## Network behaviour
 
@@ -193,6 +193,7 @@ The repository contains one Skill:
 ```text
 skills/qweather/
 ├── SKILL.md
+├── config.toml
 ├── agents/
 │   └── openai.yaml
 └── references/
@@ -204,6 +205,11 @@ skills/qweather/
 ```
 
 `SKILL.md` is concise and contains only triggering metadata, command-selection workflow, installation check, place-error handling, Product Gate rules, cache-refresh guidance, and Attribution requirements. Detailed material is loaded from one-level references only when relevant.
+
+`config.toml` is a secret-free reference template. It uses API KEY authentication
+by default and includes a commented alternative for locally generated Ed25519
+JWT authentication. The template is copied with the Skill and is never filled
+or written automatically.
 
 `command-reference.md`, schema tables, and stable problem-code tables are generated from the Go registry and contract definitions. Human workflow guidance remains hand-written. CI regenerates these files and fails when tracked output differs.
 
@@ -253,7 +259,10 @@ During normal execution, the JavaScript shim never downloads or updates anything
 
 When npm lifecycle scripts are disabled, the shim reports the missing binary and an explicit `install` or `repair` command. It does not download on first weather use and does not fall back to compiling Go source.
 
-Private development releases may use `GH_TOKEN`. Public distribution uses unauthenticated public Release assets.
+The installer only consumes public Release assets anonymously. Maintainer-only
+publication workflows may use GitHub's workflow token for GitHub operations,
+but the npm adapter never reads `GH_TOKEN` and cannot install from a private
+Release.
 
 ## Release
 
@@ -263,9 +272,10 @@ validation is manual and valid only on an exact `release/vX.Y.Z` branch. The
 stabilization, approval, smoke, publication handoff, failure handling, and
 retirement. The Release gate double-builds and retains one exact-SHA artifact
 set, then smoke-tests the Linux amd64 binary from that set; packaging and
-publication remain owned by Issue #8. GitHub-side reviewer and Environment-
-secret provisioning may follow workflow integration but is a hard prerequisite
-for the first live release run (Issue #20).
+publication are handled by the independently protected publication workflow.
+The protected reviewer rules and secret names must be verified before every
+live release run; they are part of the release environment, not a one-time
+first-release prerequisite.
 
 ### Platform matrix
 

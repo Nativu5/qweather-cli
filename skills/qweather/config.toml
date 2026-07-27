@@ -1,0 +1,26 @@
+# Copy this file to a local path and replace the placeholders before use.
+# Keep credentials in environment variables or a protected private-key file.
+
+[profiles.default]
+api_host = "YOUR_ACCOUNT_API_HOST"
+auth = "api_key"
+api_key_env = "QWEATHER_API_KEY"
+language = "auto"
+unit = "metric"
+
+# You may replace api_key_env above with an inline plaintext API key:
+# api_key = "YOUR_ACCOUNT_API_KEY"
+# This stores the secret in this file. Weigh the convenience against access,
+# backup, and synchronization risks; on Unix, restrict the file mode to 0600.
+
+# To use a locally generated Ed25519 JWT instead, replace the auth and
+# api_key_env settings above with the following settings:
+# auth = "jwt"
+# project_id = "YOUR_PROJECT_ID"
+# credential_id = "YOUR_CREDENTIAL_ID"
+# private_key_file = "~/.config/qweather/ed25519-private.pem"
+# jwt_ttl = "15m"
+
+[cache]
+enabled = true
+sensitive = false

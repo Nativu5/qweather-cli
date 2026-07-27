@@ -1,25 +1,24 @@
 # npm publication checklist
 
-Issue #8 implements the package and publication machinery but does not permit
-an unattended first release. Complete this checklist in order for each version.
+The first real package, `qweather-cli@0.1.0`, was published through the
+protected workflow. Its one-time bootstrap token was revoked and Trusted
+Publishing is now the required path. Complete this checklist in order for each
+later version.
 
 ## Before a version PR
 
 1. Confirm the repository is public and `main` protection and Actions policy
    are deliberately configured.
-2. Confirm Issue #20 has provisioned the protected `qweather-release-smoke`
-   Environment with exactly `QWEATHER_API_HOST` and `QWEATHER_API_KEY`, plus a
-   required reviewer. Never put either value in a workflow input, repository
-   variable, Issue, PR, summary, or artifact.
-3. Confirm Issue #9 is closed and its generated Skill/version checks are green.
-4. Confirm Issue #31 Phase A has provisioned the protected
-   `qweather-release-publish` Environment and review path. Phase B cannot finish
-   until the first real package exists; create the temporary bootstrap token only
-   for the authorized first publication, then configure Trusted Publishing and
-   revoke/delete the token immediately afterward.
-5. Recheck `npm view qweather-cli name version`. For the first package, an
-   unclaimed name (E404) is required; later releases must verify the existing
-   package belongs to this repository and that the requested version is absent.
+2. Confirm the protected `qweather-release-smoke` Environment still has exactly
+   `QWEATHER_API_HOST` and `QWEATHER_API_KEY`, plus a required reviewer and the
+   `release/v*` branch policy. Never put either value in a workflow input,
+   repository variable, Issue, PR, summary, or artifact.
+3. Confirm the generated Skill and version-synchronization checks are green.
+4. Confirm the protected `qweather-release-publish` Environment still has a
+   required reviewer, the `release/v*` branch policy, the configured npm
+   Trusted Publisher, and no stored `NPM_TOKEN`.
+5. Recheck `npm view qweather-cli name repository.url`. The existing package
+   must belong to this repository, and the requested version must be absent.
 6. Dispatch `prepare-release.yml` with stable `X.Y.Z`. Review and merge the
    generated `chore(release): prepare vX.Y.Z` PR; do not edit VERSION manually.
 
@@ -39,18 +38,17 @@ an unattended first release. Complete this checklist in order for each version.
 
 ## Publication handoff
 
-1. Immediately repeat the npm name check. For the first publication require an
-   E404/unclaimed package; for later releases require the existing package to
-   point to this repository and the requested version to be absent. Stop on
-   any conflict or ambiguous registry response.
+1. Immediately repeat the npm name and ownership check. The existing package
+   must point to this repository and the requested version must be absent. Stop
+   on any conflict or ambiguous registry response.
 2. Dispatch `publish.yml` with the version, gate run ID, and exact source SHA.
 3. The workflow revalidates the gate, verifies all six artifacts without
    rebuilding, refuses an existing tag, creates the immutable tag and Draft
    GitHub Release, uploads/read-backs the assets, publishes the Release, and
    checks anonymous downloads.
 4. Only after public asset verification does it publish the staged npm package
-   with provenance. The first package may use the one-day bootstrap token from
-   #31; later runs must use npm Trusted Publishing/OIDC and no stored npm token.
+   with provenance through npm Trusted Publishing/OIDC. Do not add or restore a
+   stored npm token.
 5. Verify global install, project-local install, `npx`, `qweather version
    --output json`, checksum selection on all six platforms, and shim stdout,
    stderr, exit-code, and signal forwarding.
@@ -59,7 +57,9 @@ an unattended first release. Complete this checklist in order for each version.
 
 - the requested npm version is already published, package ownership is
   unexpected, or registry availability is ambiguous;
-- #9 is not closed, #20 is not complete, or Issue #31 Phase A is not complete;
+- the generated Skill checks are not green, either protected Environment is
+  missing its required reviewer/branch policy, or Trusted Publishing is not
+  configured without a stored npm token;
 - source SHA, release branch, gate run, artifact checksums, or VERSION disagree;
 - any archive contains an unexpected entry or fails anonymous read-back;
 - npm publish fails after a tag or public Release exists.

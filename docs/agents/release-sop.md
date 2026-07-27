@@ -5,27 +5,29 @@ This procedure separates daily integration from release validation. Merges to
 prepared only on a branch named exactly `release/vX.Y.Z` and validated by the
 independent manual Release gate workflow.
 
-This SOP stops at a release-ready commit. Issue #8 owns packaging, tags, GitHub
-Releases, npm publication, and public distribution. A passing gate is not a
-published release; publication remains a separate protected handoff.
+The Release gate produces a release-ready, exact-SHA artifact set but never
+publishes it. The independently protected publication workflow consumes that
+set to create the immutable Git tag and GitHub Release, verify public assets,
+and publish the matching npm package. Keep validation and publication as
+separate approvals for every release.
 
-The read-only workflow may be merged before release credentials are provisioned.
-Issue #20 must be completed before the first real release: it adds a supported
-required-reviewer rule and the two Environment-scoped secrets. Until then, do
-not dispatch the live gate and do not treat the repository as release ready.
-Issue #8's package job now produces and retains the exact six-platform artifact
-set for 14 days; its publish workflow consumes that set without rebuilding.
+Before dispatching a live gate or publication, verify that both protected
+Environments still have their required reviewers, branch policies, and only
+the documented secret names. Do not put secret values in workflow inputs,
+repository variables, Issues, PRs, summaries, or artifacts. The gate retains
+the exact six-platform artifact set for 14 days; publication consumes that set
+without rebuilding.
 
 ## Roles and durable records
 
 - A release Issue names one release owner, stable SemVer, source `main` SHA,
   release-branch head SHA, scope, and go/no-go decision.
-- Once #20 is complete, protected Environment reviewers authorize the
-  quota-consuming smoke job.
+- Protected Environment reviewers authorize the quota-consuming smoke job and
+  the separate publication handoff.
 - The Release gate workflow proves deterministic gates and three approved live
   Basic calls for one exact release-branch commit.
-- Issue #8 consumes the passing workflow URL, version, and exact commit SHA for
-  later packaging/publication work.
+- The publication workflow consumes the passing workflow URL, version, and
+  exact commit SHA for packaging and publication.
 
 Do not reuse one release Issue or branch for multiple versions.
 
@@ -42,12 +44,11 @@ gh workflow run prepare-release.yml -f version=X.Y.Z
 ```
 
 Review and merge the generated `chore(release): prepare vX.Y.Z` PR. It updates
-the sole version source and synchronized npm metadata; for the initial version,
-those files may already match and the workflow records an explicit no-op
-version commit for review. After merge, the workflow creates the exact
-`release/vX.Y.Z` branch and dispatches the gate. Record the full source and
-branch-head SHAs on the release Issue. Branch creation does not run smoke,
-create a tag, or publish anything.
+the sole version source and synchronized npm metadata. If those files already
+match, the workflow records an explicit no-op version commit for review. After
+merge, the workflow creates the exact `release/vX.Y.Z` branch and dispatches the
+gate. Record the full source and branch-head SHAs on the release Issue. Branch
+creation does not run smoke, create a tag, or publish anything.
 
 ## 2. Stabilize without mixing daily development
 
@@ -78,7 +79,7 @@ gh workflow run release-gate.yml \
   -f version=X.Y.Z
 ```
 
-Before dispatch, verify #20 is closed and the Environment still has its required
+Before dispatch, verify the protected Environment still has its required
 reviewer rule, `release/v*` branch policy, and exactly the two expected secret
 names. Missing credentials are a safe pre-release stop, not a reason to add
 repository-level fallbacks or placeholder values.
@@ -101,13 +102,13 @@ without recording why the prior result is unusable.
 
 ## 4. Hand off without publishing
 
-After every job passes, record the workflow URL, `X.Y.Z`, release branch, and
-full `GITHUB_SHA` on the release Issue and #8. Confirm the branch still points to
-that SHA, and record the retained artifact name. The gate has no permission to
-create tags, Releases, packages, or npm publications.
+After every job passes, record the workflow URL, `X.Y.Z`, release branch, full
+`GITHUB_SHA`, and retained artifact name on the release Issue. Confirm the
+branch still points to that SHA. The gate has no permission to create tags,
+Releases, packages, or npm publications.
 
-Publication automation added by #8 must remain independently triggered, accept
-only `release/vX.Y.Z`, and verify a passing Release gate for the same version and
+The publication workflow must remain independently triggered, accept only
+`release/vX.Y.Z`, and verify a passing Release gate for the same version and
 exact source SHA. A `main` push or merge is never a publication trigger.
 
 ## 5. Failure and rollback
@@ -122,16 +123,17 @@ rotate the credential, and remove the exposed material from every durable
 surface before retrying.
 
 After publication, do not rewrite an existing tag or silently replace assets.
-Record the incident under #8 and prepare a new patch version. Package withdrawal
-or downstream advisory actions belong to the publication procedure implemented
-by #8.
+Record the incident on the release Issue and prepare a new patch version.
+Package withdrawal or downstream advisory actions belong to the protected
+publication workflow.
 
 ## 6. Retire the branch
 
-For a successful release, wait until #8 records publication completion, then
-delete the release branch and close the release Issue with links to the gate and
-publication evidence. For a cancelled release, record the reason and delete the
-branch after confirming it contains no fix that still needs forward-porting.
+For a successful release, wait until the publication workflow records
+completion, then delete the release branch and close the release Issue with
+links to the gate and publication evidence. For a cancelled release, record the
+reason and delete the branch after confirming it contains no fix that still
+needs forward-porting.
 
 Never recreate or reuse a retired `release/vX.Y.Z` branch. A later release uses
 a new version, Issue, branch, approved gate run, and publication handoff.
