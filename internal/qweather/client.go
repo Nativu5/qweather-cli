@@ -87,6 +87,9 @@ func NewClient(apiHost string, credentials auth.Credentials, options ClientOptio
 		if len(via) == 0 {
 			return nil
 		}
+		if request.URL.Scheme != "https" {
+			return errors.New("non-HTTPS redirect rejected")
+		}
 		if !strings.EqualFold(request.URL.Host, via[0].URL.Host) {
 			return errors.New("cross-host redirect rejected")
 		}
