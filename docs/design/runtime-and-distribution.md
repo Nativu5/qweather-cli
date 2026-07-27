@@ -230,9 +230,10 @@ If `qweather` is absent, the Skill prints a version-neutral npm installation com
 
 The adapter lives outside the Skill under `packages/npm/`. Its package version always matches the Go CLI version.
 
-The implementation is a CommonJS package for Node.js `>=22.21.0`. Its reviewed
-runtime dependencies are pinned in `packages/npm/npm-shrinkwrap.json`:
-`tar@7.5.22` and `yauzl@3.4.0`. The package contains only the shim, installer,
+The implementation is a CommonJS package for Node.js `>=22.11.0`, the first
+Node 22 LTS release. Its reviewed runtime dependencies are pinned in
+`packages/npm/npm-shrinkwrap.json`: `tar@7.5.22`, `undici@7.29.0`, and
+`yauzl@3.4.0`. The package contains only the shim, installer,
 archive/checksum helpers, project README/license, and the release
 `checksums.txt` manifest; it never contains Go source or a downloaded platform
 binary.
@@ -247,13 +248,21 @@ During an explicit npm installation:
 6. extract and atomically place the binary; and
 7. set executable permissions where required.
 
-The installer uses the fixed public GitHub Release URL, downloads anonymously,
-honours Node's `proxyEnv: process.env`, follows at most five HTTPS redirects,
-enforces a 64 MiB archive and 128 MiB extracted-content limit, rejects HTTP
-downgrades, validates the exact three-entry archive layout, verifies SHA256,
-and installs through a same-directory temporary path and atomic rename. It
-does not read `GH_TOKEN`, accept a mirror or URL override, retry, or compile
-source.
+The installer uses the fixed public GitHub Release URL and downloads
+anonymously through `undici@7`'s `EnvHttpProxyAgent`. Proxy precedence is:
+
+- HTTP: non-empty `npm_config_proxy`, `http_proxy`, then `HTTP_PROXY`;
+- HTTPS: non-empty `npm_config_https_proxy`, `https_proxy`, then `HTTPS_PROXY`,
+  falling back to the resolved HTTP proxy; and
+- bypass list: non-empty `npm_config_noproxy`, `no_proxy`, then `NO_PROXY`.
+
+The installer does not inspect platform-specific system proxy settings or
+invoke `curl`/`wget`. The same dispatcher is used for every manually checked
+HTTPS redirect. It follows at most five HTTPS redirects, enforces a 64 MiB
+archive and 128 MiB extracted-content limit, rejects HTTP downgrades, validates
+the exact three-entry archive layout, verifies SHA256, and installs through a
+same-directory temporary path and atomic rename. It does not read `GH_TOKEN`,
+accept a mirror or URL override, retry, or compile source.
 
 During normal execution, the JavaScript shim never downloads or updates anything. It launches the installed binary and preserves arguments, signals, stdout, stderr, and exit status.
 

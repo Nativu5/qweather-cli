@@ -18,9 +18,15 @@ test('npm metadata stays synchronized with the root version and fixed toolchain 
 
   assert.equal(packageJSON.version, version);
   assert.equal(shrinkwrap.version, version);
-  assert.equal(packageJSON.engines.node, '>=22.21.0');
+  assert.equal(packageJSON.engines.node, '>=22.11.0');
   assert.equal(packageJSON.packageManager, 'npm@11.16.0');
-  assert.deepEqual(packageJSON.dependencies, { tar: '7.5.22', yauzl: '3.4.0' });
+  assert.deepEqual(packageJSON.dependencies, {
+    tar: '7.5.22',
+    undici: '7.29.0',
+    yauzl: '3.4.0',
+  });
+  assert.deepEqual(shrinkwrap.packages[''].dependencies, packageJSON.dependencies);
+  assert.equal(shrinkwrap.packages[''].engines.node, packageJSON.engines.node);
   assert.ok(packageJSON.files.includes('npm-shrinkwrap.json'));
 });
 
