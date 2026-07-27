@@ -17,30 +17,34 @@ authentication, validation, caching, presentation, and error classification.
    as the secret-free template. Copy it to a local path, replace its
    placeholders, and configure exactly one authentication method. Never print
    or expose credential values.
-3. Select only a Current Capability from
+3. Before the first weather query in a task, and whenever configuration
+   selection changes, follow the preflight in
+   [common-tasks.md](references/common-tasks.md). Use the same reference for
+   mountain/scenic-area forecasts, target-date coverage, and grid-to-city
+   degradation.
+4. Select only a Current Capability from
    [command-reference.md](references/command-reference.md). Use `qweather
    capability list --output json` or `qweather capability show <id> --output
    json` for offline discovery when needed. Tombstones are never executable.
-4. Choose the exact target kind. Read
+5. Choose the exact target kind. Read
    [places-and-errors.md](references/places-and-errors.md) before using a human
    place name, resolving an ambiguity, or handling a non-zero result.
-5. Apply Product Gates before network I/O. Read
+6. Apply Product Gates before network I/O. Read
    [products-and-attribution.md](references/products-and-attribution.md) for
    Marine, Solar, Storm, Account, cache privacy, and Attribution rules.
-6. Pass an output mode explicitly:
+7. Pass an output mode explicitly:
    - `--output text` for routine human reading;
    - `--output json` when exact field paths, JSON types, or automation matter;
    - `--output body` only for byte-exact successful provider data.
-7. Use the default cache unless the user deliberately requests `--refresh` or
+8. Use the default cache unless the user deliberately requests `--refresh` or
    `--no-cache`. Never retry automatically.
-8. Run one composed command. Preserve stdout as data and stderr as diagnostics.
+9. Run one composed command. Preserve stdout as data and stderr as diagnostics.
    For JSON automation, branch on the Machine Problem `code`, not message text.
-9. Preserve complete Attribution whenever QWeather data is shown, transformed,
+10. Preserve complete Attribution whenever QWeather data is shown, transformed,
    stored, or shared.
 
-See [common-tasks.md](references/common-tasks.md) for command and UNIX-pipeline
-patterns. See [result-schema.md](references/result-schema.md) for Machine Result,
-Machine Problem, and stable problem-code fields.
+See [result-schema.md](references/result-schema.md) for Machine Result, Machine
+Problem, and stable problem-code fields.
 
 ## Official documentation boundary
 
