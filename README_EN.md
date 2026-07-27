@@ -1,14 +1,14 @@
 # QWeather CLI
 
-An agent-friendly and human-friendly command-line client for QWeather.
+QWeather Skill and command-line client for agents.
 
 [简体中文](README.md) | English
 
-> This is an unofficial QWeather client. It is not affiliated with, sponsored by, or endorsed by QWeather or its affiliates. Project code is licensed under Apache License 2.0; access to QWeather services, use of QWeather data, attribution, and trademark use remain subject to the applicable QWeather terms.
+> This is an unofficial QWeather CLI implementation. It is not affiliated with, sponsored by, or endorsed by QWeather or its affiliates. Project code is licensed under Apache License 2.0. Access to QWeather services, use of QWeather data, attribution, and trademark use remain subject to the applicable terms.
 
 ## Feature overview
 
-The CLI uses a curated, project-owned capability catalog. It does not expose upstream URLs or arbitrary provider request fields. The current catalog contains 28 executable capabilities:
+QWeather CLI provides the following data-query and account-management features:
 
 - Geo: city lookup, top cities, POI lookup, and nearby POIs;
 - Weather: city/grid current, daily, and hourly weather, historical weather, indices, and minutely precipitation;
@@ -20,15 +20,31 @@ The CLI uses a curated, project-owned capability catalog. It does not expose ups
 - Astronomy: sunrise/sunset, moon events, and solar position;
 - Account: finance summary and request statistics.
 
-Run `qweather --help` or `qweather capability list` to inspect the current command tree. Deprecated upstream operations remain lifecycle records and never become executable CLI commands.
+Run `qweather --help` to see the available commands and flags.
 
 ## Installation
 
+### Install with npm
+
+> [!TIP]
+> You can send this page URL directly to your Agent.
+
+Install the `qweather` Skill for your Agent and the CLI binary:
+
+```sh
+npx skills add Nativu5/qweather-cli
+npm install --global qweather-cli@0.1.0
+```
+
+The first command installs the Skill into the Agent environment detected by `npx skills`; the second installs the `qweather` CLI binary. Neither command reads or writes QWeather credentials.
+
 ### Download a binary manually
 
-When a Release is available, download the archive for your operating system and architecture from [GitHub Releases](https://github.com/Nativu5/qweather-cli/releases). Each published version includes `checksums.txt`, which you can use to verify the archive's SHA256. Extract the archive and place `qweather` (`qweather.exe` on Windows) in a directory on your `PATH`.
+Download the archive for your operating system and architecture from [GitHub Releases](https://github.com/Nativu5/qweather-cli/releases).
 
-Published versions will provide `arm64` and `amd64` binaries for macOS, Linux, and Windows.
+Extract it and place `qweather` (`qweather.exe` on Windows) in a directory on your `PATH`. Releases provide `arm64` and `amd64` binaries for macOS, Linux, and Windows.
+
+If you also need the Skill, run the `npx skills add` command above, or place the contents of the repository's `skills` directory manually where your Agent expects them.
 
 ### Build from source
 
@@ -41,18 +57,21 @@ go build -o qweather ./cmd/qweather
 
 ## Configuration and authentication
 
-The CLI supports Ed25519 JWT (recommended) and API KEY authentication. Do not put credentials in command-line arguments, commit them to Git, or paste them into public Issues. Save the configuration as a TOML file and select it with `--config`; this example reads an API KEY from an environment variable:
+QWeather supports Ed25519 JWT (recommended) and API KEY authentication. You can use environment variables or save configuration as TOML and select it with `--config`.
 
-```toml
-[profiles.default]
-api_host = "YOUR_ACCOUNT_API_HOST"
-auth = "api_key"
-api_key_env = "QWEATHER_API_KEY"
-language = "auto"
-unit = "metric"
+- Environment variable example:
+
+```sh
+# For API KEY authentication
+export QWEATHER_API_HOST="YOUR_ACCOUNT_API_HOST"
+export QWEATHER_API_KEY="YOUR_ACCOUNT_API_KEY"
 ```
 
-Validate configuration without making a QWeather API request:
+- Configuration file example:
+
+Copy the [config.toml](skills/qweather/config.toml) template from the Skill. It uses API KEY authentication by default and includes a commented Ed25519 JWT alternative. Follow its comments to choose exactly one authentication method and replace the placeholders.
+
+Validate the configuration without making an actual API request:
 
 ```sh
 qweather config check --config /path/to/config.toml
@@ -62,7 +81,7 @@ The API Host must be the account-specific HTTPS host. See the official [QWeather
 
 ## Basic usage
 
-The default output is a deterministic Text View intended for people:
+The default output is a Text View intended for people:
 
 ```sh
 qweather weather city current --place "Shanghai"
@@ -71,9 +90,10 @@ qweather air current --coordinate geo:31.2304,121.4737
 qweather geo city lookup --query "Shanghai" --limit 5
 ```
 
-Use `geo:<latitude>,<longitude>` for coordinates, with latitude first and longitude second. If a place name is ambiguous, the CLI reports the candidates and requires an explicit choice. Geo data is used only for the current invocation and is never persisted.
+> [!TIP]
+> Use `geo:<latitude>,<longitude>` for coordinates, with latitude first and longitude second. If a place name is ambiguous, the CLI reports the candidates and requires an explicit choice.
 
-Select JSON explicitly for automation:
+Select JSON for automation:
 
 ```sh
 qweather --output json weather city current --place-id <location-id>
@@ -95,9 +115,12 @@ qweather cache status
 qweather cache clear
 ```
 
-## Billable capabilities and attribution
+> [!TIP]
+> Geo data is not cached, as required by the QWeather documentation.
 
-`--allow-product` is a real CLI option that explicitly acknowledges a potentially billable product before the request. Tropical cyclone and tide commands use `--allow-product marine`; solar radiation uses `--allow-product solar`. Sensitive Account output uses `--allow-sensitive-output account`:
+## Billable APIs
+
+QWeather bills by product, and some products have no free allowance. Under the current QWeather pricing rules, the CLI requires explicit command-line acknowledgement before these products are requested: tropical cyclone and tide commands use `--allow-product marine`; solar radiation uses `--allow-product solar`.
 
 ```sh
 qweather marine tide \
@@ -105,14 +128,14 @@ qweather marine tide \
   --date <YYYY-MM-DD> \
   --allow-product marine
 
-qweather account finance --allow-sensitive-output account
+qweather solar forecast \
+  --coordinate geo:31.2304,121.4737 \
+  --allow-product solar
 ```
 
-These acknowledgement flags work in automation and do not trigger an interactive prompt. The tide date must be between today in UTC and nine days from today. Tropical cyclone, tide, and solar radiation capabilities may be billable or have no free allowance; read the current QWeather pricing and product terms first.
+These flags do not trigger an interactive prompt and work in automation. The tide date must be between today in UTC and nine days from today. See the official [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/) documentation for current charges.
 
-When QWeather data is displayed or reused, preserve the required provider, source, and attribution information. See [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/), [Attribution](https://dev.qweather.com/docs/terms/attribution/), and the [Developers terms](https://dev.qweather.com/docs/terms/).
-
-## Design and documentation
+## Design documentation
 
 - [CLI contract](docs/design/cli-contract.md): command, flag, output, and exit-code contract;
 - [Architecture](docs/design/architecture.md): module boundaries and request flow;
@@ -120,8 +143,8 @@ When QWeather data is displayed or reused, preserve the required provider, sourc
 - [CONTEXT.md](CONTEXT.md): domain vocabulary and project constraints;
 - [Architecture decision records](docs/adr/): accepted architectural decisions.
 
-## License and disclaimer
+## License
 
 Project code is released under the [Apache License 2.0](LICENSE).
 
-This project grants no additional rights to QWeather API services, QWeather data, QWeather trademarks, or third-party documentation. Use the service and data in accordance with the QWeather Developers EULA and applicable API, pricing, and attribution requirements.
+This project grants no additional rights to QWeather API services, data, trademarks, or third-party documentation. Use the service and data in accordance with the QWeather Developers EULA and applicable API and pricing requirements.

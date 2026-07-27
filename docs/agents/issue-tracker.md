@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and PRDs for this repo live as GitHub issues in the private
+Issues and PRDs for this repo live as GitHub issues in the public
 `Nativu5/qweather-cli` repository. Use the `gh` CLI for all operations.
 
 ## Conventions
