@@ -7,9 +7,10 @@ independent manual Release gate workflow.
 
 The Release gate produces a release-ready, exact-SHA artifact set but never
 publishes it. The independently protected publication workflow consumes that
-set to create the immutable Git tag and GitHub Release, verify public assets,
-and publish the matching npm package. Keep validation and publication as
-separate approvals for every release.
+set to reconcile the immutable Git tag, GitHub Release, and matching npm
+package. An absent object is created; an exact existing object is accepted on
+retry; any mismatch fails without replacement. Keep validation and publication
+as separate approvals for every release.
 
 Before dispatching a live gate or publication, verify that both protected
 Environments still have their required reviewers, branch policies, and only
@@ -107,9 +108,10 @@ After every job passes, record the workflow URL, `X.Y.Z`, release branch, full
 branch still points to that SHA. The gate has no permission to create tags,
 Releases, packages, or npm publications.
 
-The publication workflow must remain independently triggered, accept only
-`release/vX.Y.Z`, and verify a passing Release gate for the same version and
-exact source SHA. A `main` push or merge is never a publication trigger.
+The publication workflow must remain independently triggered, normally accept
+only `release/vX.Y.Z`, and verify a passing Release gate for the same version
+and exact source SHA. A `main` push or merge is never a publication trigger.
+The narrowly scoped recovery exception is described below.
 
 ## 5. Failure and rollback
 
@@ -122,12 +124,48 @@ If credentials or secret-bearing output may have escaped, stop the release,
 rotate the credential, and remove the exposed material from every durable
 surface before retrying.
 
-After publication, do not rewrite an existing tag or silently replace assets.
-Record the incident on the release Issue and prepare a new patch version.
-Package withdrawal or downstream advisory actions belong to the protected
-publication workflow.
+The publication job is safe to rerun after a transient or ambiguous failure.
+It accepts an existing annotated tag only when it peels to the gated source
+SHA. It accepts an existing Release only when its asset names and GitHub
+SHA-256 digests match the retained gate artifact. A draft may receive only its
+missing exact assets; a public Release is never modified. It publishes one
+prebuilt npm tarball and accepts an already-visible npm version only when its
+repository identity and `dist.integrity` match that exact tarball.
 
-## 6. Retire the branch
+After publication, do not rewrite an existing tag, replace a public asset, or
+accept a different npm tarball. Record any mismatch on the release Issue and
+prepare a new patch version. Package withdrawal or downstream advisory actions
+belong to the protected publication workflow.
+
+## 6. Recover a release created by the old publication workflow
+
+Use a recovery ref only when the old non-retryable workflow already created an
+exact public tag and Release but failed before npm publication. Do not use it
+to repair a mismatched or incomplete public release.
+
+1. Merge the reviewed retryability fix to `main` through the normal development
+   SOP.
+2. Create the one-version ref `release/vX.Y.Z-recovery` at that reviewed merge
+   commit. The protected publication Environment's `release/v*` policy and
+   reviewer still apply.
+3. Dispatch the existing `publish.yml` from the recovery ref with the original
+   passing gate run ID and gated source SHA:
+
+   ```sh
+   gh workflow run publish.yml \
+     --ref "release/vX.Y.Z-recovery" \
+     --field version=X.Y.Z \
+     --field gate_run_id=ORIGINAL_GATE_RUN_ID \
+     --field source_sha=ORIGINAL_FULL_SOURCE_SHA
+   ```
+
+The workflow definition comes from the reviewed recovery ref, but checkout,
+artifact inspection, npm staging, and integrity calculation use the original
+gated source SHA. Recovery requires the exact annotated tag and complete public
+Release to exist already. It does not rebuild binaries or rerun live smoke.
+Delete the recovery ref after npm and post-publication checks succeed.
+
+## 7. Retire the branch
 
 For a successful release, wait until the publication workflow records
 completion, then delete the release branch and close the release Issue with

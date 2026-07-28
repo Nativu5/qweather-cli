@@ -44,6 +44,14 @@ The tagged command compiles the E2E package with a regular expression that
 matches no tests. It validates build compatibility without reading live-test
 configuration or making a provider request.
 
+Publication retry is verified at the protected workflow boundary, not by
+rebuilding release artifacts or repeating the live QWeather smoke suite. A
+retry supplies the same version, gate run ID, and full source SHA, then checks
+the retained artifact against any existing annotated tag, Release asset
+digests, and npm tarball integrity. Exact state continues; mismatched state
+fails closed. A recovery run for a release created by the old workflow uses the
+documented version-scoped recovery ref and the original passing gate artifact.
+
 Pull-request CI and `main` push CI run the same gates. They receive no QWeather
 credentials. `go test ./...` does not discover the build-tagged E2E package.
 Adding a normal test that uses the public network is prohibited.

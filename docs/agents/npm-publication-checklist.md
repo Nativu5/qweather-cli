@@ -18,7 +18,8 @@ later version.
    required reviewer, the `release/v*` branch policy, the configured npm
    Trusted Publisher, and no stored `NPM_TOKEN`.
 5. Recheck `npm view qweather-cli name repository.url`. The existing package
-   must belong to this repository, and the requested version must be absent.
+   must belong to this repository. A new requested version must be absent; a
+   retry may accept it only after the workflow proves exact tarball integrity.
 6. Dispatch `prepare-release.yml` with stable `X.Y.Z`. Review and merge the
    generated `chore(release): prepare vX.Y.Z` PR; do not edit VERSION manually.
 
@@ -39,8 +40,8 @@ later version.
 ## Publication handoff
 
 1. Immediately repeat the npm name and ownership check. The existing package
-   must point to this repository and the requested version must be absent. Stop
-   on any conflict or ambiguous registry response.
+   must point to this repository. Stop on any identity conflict or ambiguous
+   registry response.
 2. Dispatch `publish.yml` on the exact release branch with the version, gate run ID, and source SHA:
 
    ```sh
@@ -50,27 +51,46 @@ later version.
      --field gate_run_id=GATE_RUN_ID \
      --field source_sha=FULL_SOURCE_SHA
    ```
-3. The workflow revalidates the gate, verifies all six artifacts without
-   rebuilding, refuses an existing tag, creates the immutable tag and Draft
-   GitHub Release, uploads/read-backs the assets, publishes the Release, and
-   checks anonymous downloads.
-4. Only after public asset verification does it publish the staged npm package
-   with provenance through npm Trusted Publishing/OIDC. Do not add or restore a
-   stored npm token.
+3. The workflow revalidates the gate and verifies all six artifacts without
+   rebuilding. It creates absent tag/Release state and accepts exact existing
+   state on retry. An existing annotated tag must peel to the gated source SHA;
+   every existing Release asset must match the retained artifact digest. Only
+   an exact draft may receive missing assets, and a public Release is never
+   modified.
+4. The workflow packs one exact npm `.tgz`. Only after public asset verification
+   does it publish that tarball with provenance through npm Trusted
+   Publishing/OIDC. If the version is already visible after an ambiguous prior
+   result, the workflow succeeds only when repository identity and
+   `dist.integrity` match. Do not add or restore a stored npm token.
 5. Verify global install, project-local install, `npx`, `qweather version
    --output json`, checksum selection on all six platforms, and shim stdout,
    stderr, exit-code, and signal forwarding.
 
+## Retry and old-release recovery
+
+Rerun a failed publication on the same `release/vX.Y.Z` ref with the same three
+inputs. Exact durable state is accepted; absent state is completed. Never
+change the gate run or source SHA merely to make a retry pass.
+
+If a release made by the old workflow already has its exact public tag and
+Release, use the reviewed `release/vX.Y.Z-recovery` procedure in
+[release-sop.md](./release-sop.md). Recovery uses the original gate artifact
+and source SHA, does not rebuild, and does not consume another live-smoke
+allowance.
+
 ## Stop conditions
 
-- the requested npm version is already published, package ownership is
-  unexpected, or registry availability is ambiguous;
+- package ownership is unexpected or registry availability is ambiguous;
 - the generated Skill checks are not green, either protected Environment is
   missing its required reviewer/branch policy, or Trusted Publishing is not
   configured without a stored npm token;
 - source SHA, release branch, gate run, artifact checksums, or VERSION disagree;
 - any archive contains an unexpected entry or fails anonymous read-back;
-- npm publish fails after a tag or public Release exists.
+- an existing tag does not peel to the gated SHA, a Release asset differs or a
+  public Release is incomplete, or an existing npm version has different
+  repository identity or tarball integrity;
+- an npm failure remains observable after reconciliation; rerun only after the
+  publisher or transient service problem is corrected.
 
-Never rewrite a tag or replace a published asset. Record the incident and
-prepare a new patch version.
+Never rewrite a tag or replace a published asset. Exact state may be retried;
+mismatched state requires an incident record and a new patch version.
