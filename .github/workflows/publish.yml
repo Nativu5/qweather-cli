@@ -19,9 +19,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: publish-${{ inputs.version }}
+  cancel-in-progress: false
+
 jobs:
   publish:
-    name: publish immutable release and npm package
+    name: reconcile immutable release and npm package
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
@@ -36,13 +40,13 @@ jobs:
       SOURCE_SHA: ${{ inputs.source_sha }}
       GATE_RUN_ID: ${{ inputs.gate_run_id }}
     steps:
-      - name: Check out the exact release source
+      - name: Check out the exact gated release source
         uses: actions/checkout@v4
         with:
-          ref: release/v${{ inputs.version }}
+          ref: ${{ inputs.source_sha }}
           fetch-depth: 0
 
-      - name: Validate version, source branch, and release gate
+      - name: Validate publication ref, version, source, and release gate
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -56,11 +60,31 @@ jobs:
             echo "source_sha must be a full lowercase 40-character SHA" >&2
             exit 1
           fi
-          if [ "$GITHUB_REF" != "refs/heads/release/v${VERSION}" ]; then
-            echo "publish requires refs/heads/release/v${VERSION}; selected ${GITHUB_REF}" >&2
-            exit 1
-          fi
+
+          normal_ref="refs/heads/release/v${VERSION}"
+          recovery_ref="refs/heads/release/v${VERSION}-recovery"
+          case "$GITHUB_REF" in
+            "$normal_ref")
+              recovery=false
+              branch_output="$(git ls-remote --heads origin "$normal_ref")"
+              if [ "$(awk '{print $1}' <<<"$branch_output")" != "$SOURCE_SHA" ]; then
+                echo "${normal_ref} must point to gated source ${SOURCE_SHA}" >&2
+                exit 1
+              fi
+              ;;
+            "$recovery_ref")
+              recovery=true
+              ;;
+            *)
+              echo "publish requires ${normal_ref} or the version-scoped recovery ref ${recovery_ref}; selected ${GITHUB_REF}" >&2
+              exit 1
+              ;;
+          esac
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(tr -d '[:space:]' < VERSION)" = "$VERSION"
+          test "$(jq -r .version packages/npm/package.json)" = "$VERSION"
+          test "$(jq -r .version packages/npm/npm-shrinkwrap.json)" = "$VERSION"
+
           gate_json="$(gh run view "$GATE_RUN_ID" --json workflowName,status,conclusion,headSha,headBranch)"
           test "$(jq -r .workflowName <<<"$gate_json")" = "Release gate"
           test "$(jq -r .status <<<"$gate_json")" = "completed"
@@ -70,6 +94,7 @@ jobs:
           for issue in 9 20; do
             test "$(gh issue view "$issue" --json state --jq .state)" = "CLOSED"
           done
+          echo "RECOVERY=$recovery" >> "$GITHUB_ENV"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -82,12 +107,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/release-artifacts"
+          artifact_dir="$RUNNER_TEMP/release-artifacts"
+          mkdir -p "$artifact_dir"
           gh run download "$GATE_RUN_ID" \
             --name "qweather-release-${VERSION}-${SOURCE_SHA}" \
-            --dir "$RUNNER_TEMP/release-artifacts"
-          (cd "$RUNNER_TEMP/release-artifacts" && sha256sum -c checksums.txt)
-          go run ./tools/release inspect --version "$VERSION" --output "$RUNNER_TEMP/release-artifacts"
+            --dir "$artifact_dir"
+          (cd "$artifact_dir" && sha256sum -c checksums.txt)
+          go run ./tools/release inspect --version "$VERSION" --output "$artifact_dir"
 
       - name: Set up Node.js 24.18.0
         uses: actions/setup-node@v4
@@ -98,127 +124,327 @@ jobs:
       - name: Pin npm 11.16.0
         run: npm install --global npm@11.16.0
 
-      - name: Recheck npm name availability before publication
+      - name: Stage one exact npm tarball
         shell: bash
         run: |
-          set +e
-          npm view "qweather-cli@${VERSION}" version --json >"$RUNNER_TEMP/qweather-npm-version.json" 2>"$RUNNER_TEMP/qweather-npm-version.err"
-          version_status=$?
-          npm view qweather-cli name repository.url --json >"$RUNNER_TEMP/qweather-npm-package.json" 2>"$RUNNER_TEMP/qweather-npm-package.err"
-          package_status=$?
-          set -e
-          if [ "$version_status" -eq 0 ]; then
-            echo "qweather-cli@${VERSION} is already published; stop without changing the Release" >&2
-            cat "$RUNNER_TEMP/qweather-npm-version.json" >&2
-            exit 1
-          fi
-          if ! node - "$RUNNER_TEMP/qweather-npm-version.json" <<'NODE'
+          set -euo pipefail
+          stage="$RUNNER_TEMP/npm-stage"
+          pack_dir="$RUNNER_TEMP/npm-pack"
+          mkdir -p "$pack_dir"
+          node packages/npm/scripts/stage-package.js \
+            --checksums "$RUNNER_TEMP/release-artifacts/checksums.txt" \
+            --output "$stage"
+          npm pack "$stage" \
+            --ignore-scripts \
+            --json \
+            --pack-destination "$pack_dir" > "$RUNNER_TEMP/npm-pack.json"
+          filename="$(jq -er --arg version "$VERSION" '
+            if type == "array" and length == 1 and
+              .[0].name == "qweather-cli" and .[0].version == $version
+            then .[0].filename
+            else error("unexpected npm pack result")
+            end
+          ' "$RUNNER_TEMP/npm-pack.json")"
+          tarball="$pack_dir/$filename"
+          test -f "$tarball"
+          test "$(find "$pack_dir" -maxdepth 1 -type f -name '*.tgz' | wc -l)" -eq 1
+          integrity="$(node - "$tarball" <<'NODE'
+          const crypto = require('node:crypto');
           const fs = require('node:fs');
-          const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-          process.exit(value?.error?.code === 'E404' ? 0 : 1);
+          const bytes = fs.readFileSync(process.argv[2]);
+          process.stdout.write(`sha512-${crypto.createHash('sha512').update(bytes).digest('base64')}`);
           NODE
-          then
-            cat "$RUNNER_TEMP/qweather-npm-version.err" >&2
-            cat "$RUNNER_TEMP/qweather-npm-version.json" >&2
-            exit 1
-          fi
-          if [ "$package_status" -ne 0 ]; then
-            if node - "$RUNNER_TEMP/qweather-npm-package.json" <<'NODE'
+          )"
+          echo "NPM_TARBALL=$tarball" >> "$GITHUB_ENV"
+          echo "EXPECTED_NPM_INTEGRITY=$integrity" >> "$GITHUB_ENV"
+
+      - name: Reconcile npm registry state before GitHub mutations
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          is_not_found() {
+            node - "$1" <<'NODE'
           const fs = require('node:fs');
-          const path = process.argv[2];
           let value;
-          try { value = JSON.parse(fs.readFileSync(path, 'utf8')); } catch { process.exit(1); }
+          try {
+            value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          } catch {
+            process.exit(1);
+          }
           process.exit(value?.error?.code === 'E404' ? 0 : 1);
           NODE
-            then
-              : # The unclaimed package name is valid for the first publication.
-            else
-              cat "$RUNNER_TEMP/qweather-npm-package.err" >&2
-              cat "$RUNNER_TEMP/qweather-npm-package.json" >&2
-              exit 1
-            fi
-          else
-            node - "$RUNNER_TEMP/qweather-npm-package.json" <<'NODE'
+          }
+
+          set +e
+          npm view qweather-cli name repository.url --json \
+            > "$RUNNER_TEMP/npm-package.json" 2> "$RUNNER_TEMP/npm-package.err"
+          package_status=$?
+          npm view "qweather-cli@${VERSION}" name version dist.integrity repository.url --json \
+            > "$RUNNER_TEMP/npm-version.json" 2> "$RUNNER_TEMP/npm-version.err"
+          version_status=$?
+          set -e
+
+          if [ "$package_status" -eq 0 ]; then
+            node - "$RUNNER_TEMP/npm-package.json" <<'NODE'
           const fs = require('node:fs');
           const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
           const normalize = (url) => String(url).replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, '');
           if (value.name !== 'qweather-cli' || normalize(value['repository.url']) !== 'https://github.com/Nativu5/qweather-cli') {
-            console.error('qweather-cli is published by an unexpected package owner or repository');
-            process.exit(1);
+            throw new Error('qweather-cli is published by an unexpected package owner or repository');
           }
           NODE
-          fi
-
-      - name: Refuse to rewrite an existing tag
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if git ls-remote --exit-code --refs origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
-            echo "tag v${VERSION} already exists; immutable publication stops" >&2
+          elif ! is_not_found "$RUNNER_TEMP/npm-package.json"; then
+            cat "$RUNNER_TEMP/npm-package.err" >&2
+            cat "$RUNNER_TEMP/npm-package.json" >&2
             exit 1
           fi
 
-      - name: Stage the exact npm package for later publication
-        run: |
-          set -euo pipefail
-          stage="$RUNNER_TEMP/npm-stage"
-          node packages/npm/scripts/stage-package.js \
-            --checksums "$RUNNER_TEMP/release-artifacts/checksums.txt" \
-            --output "$stage"
+          if [ "$version_status" -eq 0 ]; then
+            node - "$RUNNER_TEMP/npm-version.json" "$VERSION" "$EXPECTED_NPM_INTEGRITY" <<'NODE'
+          const fs = require('node:fs');
+          const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const version = process.argv[3];
+          const integrity = process.argv[4];
+          const normalize = (url) => String(url).replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, '');
+          if (value.name !== 'qweather-cli' || value.version !== version ||
+              normalize(value['repository.url']) !== 'https://github.com/Nativu5/qweather-cli') {
+            throw new Error(`qweather-cli@${version} has unexpected package identity`);
+          }
+          if (value['dist.integrity'] !== integrity) {
+            throw new Error(`qweather-cli@${version} integrity does not match the exact gated tarball`);
+          }
+          NODE
+            echo "NPM_ACTION=accept" >> "$GITHUB_ENV"
+          elif is_not_found "$RUNNER_TEMP/npm-version.json"; then
+            echo "NPM_ACTION=publish" >> "$GITHUB_ENV"
+          else
+            cat "$RUNNER_TEMP/npm-version.err" >&2
+            cat "$RUNNER_TEMP/npm-version.json" >&2
+            exit 1
+          fi
 
-      - name: Create the immutable tag
+      - name: Reconcile the GitHub tag, Release, and exact assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git tag -a "v${VERSION}" "$SOURCE_SHA" -m "Release v${VERSION}"
-          git push origin "v${VERSION}"
-
-      - name: Create the draft GitHub Release and upload verified assets
-        env:
-          GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
           set -euo pipefail
-          gh release create "v${VERSION}" \
-            --verify-tag \
-            --draft \
-            --title "QWeather CLI v${VERSION}" \
-            --notes "QWeather CLI v${VERSION}" \
-            "$RUNNER_TEMP/release-artifacts"/*
-          expected="$(find "$RUNNER_TEMP/release-artifacts" -maxdepth 1 -type f -printf '%f\n' | sort)"
-          actual="$(gh release view "v${VERSION}" --json assets --jq '[.assets[].name] | sort | .[]')"
-          test "$actual" = "$expected"
+          tag="v${VERSION}"
+          tag_ref="refs/tags/${tag}"
+          state="$RUNNER_TEMP/release-state.json"
+          state_error="$RUNNER_TEMP/release-state.err"
+          expected="$RUNNER_TEMP/release-expected-assets.txt"
+          actual="$RUNNER_TEMP/release-actual-assets.txt"
+          missing="$RUNNER_TEMP/release-missing-assets.txt"
+          artifact_dir="$RUNNER_TEMP/release-artifacts"
+          find "$artifact_dir" -maxdepth 1 -type f -printf '%f\n' | sort > "$expected"
 
-          rm -rf "$RUNNER_TEMP/draft-readback"
-          mkdir -p "$RUNNER_TEMP/draft-readback"
-          gh release download "v${VERSION}" --pattern '*' --dir "$RUNNER_TEMP/draft-readback" --clobber
-          test "$(find "$RUNNER_TEMP/draft-readback" -maxdepth 1 -type f -printf '%f\n' | sort)" = "$expected"
-          while IFS= read -r asset; do
-            cmp -- "$RUNNER_TEMP/release-artifacts/$asset" "$RUNNER_TEMP/draft-readback/$asset"
-          done <<< "$expected"
-          go run ./tools/release inspect --version "$VERSION" --output "$RUNNER_TEMP/draft-readback"
+          inspect_remote_tag() {
+            local remote_output
+            remote_output="$(git ls-remote --refs origin "$tag_ref")"
+            if [ -z "$remote_output" ]; then
+              TAG_EXISTS=false
+              TAG_COMMIT=""
+              return
+            fi
+            if [ "$(wc -l <<< "$remote_output")" -ne 1 ]; then
+              echo "remote tag lookup returned an unexpected result for ${tag}" >&2
+              exit 1
+            fi
+            git fetch --force --no-tags origin "$tag_ref:$tag_ref"
+            if [ "$(git cat-file -t "$tag_ref")" != "tag" ]; then
+              echo "existing ${tag} is not an annotated tag" >&2
+              exit 1
+            fi
+            TAG_EXISTS=true
+            TAG_COMMIT="$(git rev-parse "${tag_ref}^{commit}")"
+          }
 
-      - name: Publish the GitHub Release and verify anonymous asset reads
-        env:
-          GH_TOKEN: ${{ github.token }}
+          load_release() {
+            if gh release view "$tag" --json tagName,isDraft,isPrerelease,assets > "$state" 2> "$state_error"; then
+              RELEASE_EXISTS=true
+              return
+            fi
+            if grep -Eqi 'release not found|HTTP 404' "$state_error"; then
+              RELEASE_EXISTS=false
+              return
+            fi
+            cat "$state_error" >&2
+            exit 1
+          }
+
+          verify_existing_assets() {
+            jq -r '[.assets[].name] | sort | .[]' "$state" > "$actual"
+            duplicate="$(jq -r '[.assets[].name] | group_by(.)[] | select(length > 1) | .[0]' "$state")"
+            if [ -n "$duplicate" ]; then
+              echo "Release contains duplicate asset ${duplicate}" >&2
+              exit 1
+            fi
+            unexpected="$(comm -13 "$expected" "$actual")"
+            if [ -n "$unexpected" ]; then
+              echo "Release contains unexpected assets:" >&2
+              printf '%s\n' "$unexpected" >&2
+              exit 1
+            fi
+            while IFS= read -r asset; do
+              [ -n "$asset" ] || continue
+              local_digest="sha256:$(sha256sum "$artifact_dir/$asset" | awk '{print $1}')"
+              remote_digest="$(jq -er --arg asset "$asset" '.assets[] | select(.name == $asset) | .digest' "$state")"
+              remote_state="$(jq -er --arg asset "$asset" '.assets[] | select(.name == $asset) | .state' "$state")"
+              if [ "$remote_state" != "uploaded" ] || [ "$remote_digest" != "$local_digest" ]; then
+                echo "Release asset ${asset} does not match the exact gated artifact" >&2
+                exit 1
+              fi
+            done < "$actual"
+            comm -23 "$expected" "$actual" > "$missing"
+          }
+
+          verify_release_metadata() {
+            test "$(jq -r .tagName "$state")" = "$tag"
+            if [ "$(jq -r .isPrerelease "$state")" != false ]; then
+              echo "existing ${tag} Release is unexpectedly marked as a prerelease" >&2
+              exit 1
+            fi
+          }
+
+          # Inspect every durable surface before creating any missing object.
+          inspect_remote_tag
+          if [ "$TAG_EXISTS" = true ] && [ "$TAG_COMMIT" != "$SOURCE_SHA" ]; then
+            echo "existing ${tag} does not peel to gated source ${SOURCE_SHA}" >&2
+            exit 1
+          fi
+          if [ "$TAG_EXISTS" = false ] && [ "$RECOVERY" = true ]; then
+            echo "recovery requires an existing exact annotated tag ${tag}" >&2
+            exit 1
+          fi
+
+          load_release
+          if [ "$RELEASE_EXISTS" = false ]; then
+            if [ "$RECOVERY" = true ]; then
+              echo "recovery requires an existing public Release ${tag}" >&2
+              exit 1
+            fi
+          else
+            verify_release_metadata
+            if [ "$RECOVERY" = true ] && [ "$(jq -r .isDraft "$state")" != false ]; then
+              echo "recovery requires an existing public Release ${tag}" >&2
+              exit 1
+            fi
+            verify_existing_assets
+            if [ "$(jq -r .isDraft "$state")" = false ] && [ -s "$missing" ]; then
+              echo "public Release is missing expected assets and cannot be modified" >&2
+              exit 1
+            fi
+          fi
+
+          if [ "$TAG_EXISTS" = false ]; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git tag -a "$tag" "$SOURCE_SHA" -m "Release ${tag}"
+            git push origin "$tag_ref"
+            inspect_remote_tag
+            if [ "$TAG_EXISTS" != true ] || [ "$TAG_COMMIT" != "$SOURCE_SHA" ]; then
+              echo "created ${tag} did not read back as the exact annotated tag" >&2
+              exit 1
+            fi
+          fi
+
+          if [ "$RELEASE_EXISTS" = false ]; then
+            gh release create "$tag" \
+              --verify-tag \
+              --draft \
+              --title "QWeather CLI ${tag}" \
+              --notes "QWeather CLI ${tag}"
+            load_release
+          fi
+
+          # Re-read after tag creation so a concurrent external change is
+          # validated before any Release asset mutation.
+          load_release
+          verify_release_metadata
+          verify_existing_assets
+          if [ "$(jq -r .isDraft "$state")" = true ]; then
+            while IFS= read -r asset; do
+              [ -n "$asset" ] || continue
+              gh release upload "$tag" "$artifact_dir/$asset"
+            done < "$missing"
+            load_release
+            verify_existing_assets
+            if [ -s "$missing" ]; then
+              echo "draft Release is still missing expected assets" >&2
+              exit 1
+            fi
+            gh release edit "$tag" --draft=false
+            load_release
+          elif [ -s "$missing" ]; then
+            echo "public Release is missing expected assets and cannot be modified" >&2
+            exit 1
+          fi
+
+          test "$(jq -r .isDraft "$state")" = false
+          verify_existing_assets
+          test ! -s "$missing"
+
+      - name: Verify anonymous public asset reads
+        shell: bash
         run: |
           set -euo pipefail
-          gh release edit "v${VERSION}" --draft=false
-          rm -rf "$RUNNER_TEMP/public-readback"
-          mkdir -p "$RUNNER_TEMP/public-readback"
-          for asset in "$RUNNER_TEMP/release-artifacts"/*; do
+          readback="$RUNNER_TEMP/public-readback"
+          artifact_dir="$RUNNER_TEMP/release-artifacts"
+          rm -rf "$readback"
+          mkdir -p "$readback"
+          for asset in "$artifact_dir"/*; do
+            name="$(basename "$asset")"
             curl --fail --silent --show-error --location \
-              --output "$RUNNER_TEMP/public-readback/$(basename "$asset")" \
-              "https://github.com/Nativu5/qweather-cli/releases/download/v${VERSION}/$(basename "$asset")"
+              --output "$readback/$name" \
+              "https://github.com/Nativu5/qweather-cli/releases/download/v${VERSION}/${name}"
+            cmp -- "$asset" "$readback/$name"
           done
-          expected="$(find "$RUNNER_TEMP/release-artifacts" -maxdepth 1 -type f -printf '%f\n' | sort)"
-          test "$(find "$RUNNER_TEMP/public-readback" -maxdepth 1 -type f -printf '%f\n' | sort)" = "$expected"
-          while IFS= read -r asset; do
-            cmp -- "$RUNNER_TEMP/release-artifacts/$asset" "$RUNNER_TEMP/public-readback/$asset"
-          done <<< "$expected"
-          (cd "$RUNNER_TEMP/public-readback" && sha256sum -c checksums.txt)
-          go run ./tools/release inspect --version "$VERSION" --output "$RUNNER_TEMP/public-readback"
+          test "$(find "$readback" -maxdepth 1 -type f -printf '%f\n' | sort)" = \
+            "$(find "$artifact_dir" -maxdepth 1 -type f -printf '%f\n' | sort)"
+          (cd "$readback" && sha256sum -c checksums.txt)
+          go run ./tools/release inspect --version "$VERSION" --output "$readback"
 
-      - name: Publish the exact npm package after public asset verification
-        run: npm publish "$RUNNER_TEMP/npm-stage" --provenance --access public
+      - name: Publish or accept the exact npm tarball
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_status=0
+          if [ "$NPM_ACTION" = publish ]; then
+            set +e
+            npm publish "$NPM_TARBALL" --provenance --access public
+            publish_status=$?
+            set -e
+          fi
+
+          set +e
+          npm view "qweather-cli@${VERSION}" name version dist.integrity repository.url --json \
+            > "$RUNNER_TEMP/npm-published.json" 2> "$RUNNER_TEMP/npm-published.err"
+          view_status=$?
+          set -e
+          if [ "$view_status" -ne 0 ]; then
+            cat "$RUNNER_TEMP/npm-published.err" >&2
+            cat "$RUNNER_TEMP/npm-published.json" >&2
+            if [ "$publish_status" -ne 0 ]; then
+              echo "npm publish failed before the exact package became observable; rerun this workflow after correcting the publisher" >&2
+            fi
+            exit 1
+          fi
+          node - "$RUNNER_TEMP/npm-published.json" "$VERSION" "$EXPECTED_NPM_INTEGRITY" <<'NODE'
+          const fs = require('node:fs');
+          const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const version = process.argv[3];
+          const integrity = process.argv[4];
+          const normalize = (url) => String(url).replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, '');
+          if (value.name !== 'qweather-cli' || value.version !== version ||
+              normalize(value['repository.url']) !== 'https://github.com/Nativu5/qweather-cli') {
+            throw new Error(`qweather-cli@${version} has unexpected package identity`);
+          }
+          if (value['dist.integrity'] !== integrity) {
+            throw new Error(`qweather-cli@${version} integrity does not match the exact gated tarball`);
+          }
+          NODE
+          if [ "$publish_status" -ne 0 ]; then
+            echo "npm publish returned an error, but the exact tarball is now present; publication reconciled successfully"
+          fi
