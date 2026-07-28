@@ -181,7 +181,7 @@ func TestCapabilityHelpProjectsConstraintsAndSafetyRules(t *testing.T) {
 			name: "weather indices",
 			args: []string{"weather", "indices", "--help"},
 			wants: []string{
-				"--index and --all-indices are mutually exclusive; --index values must be between 1 and 16.",
+				"Exactly one of --index or --all-indices is required; --index values must be between 1 and 16 and unique.",
 				"--index ints          weather index type; repeatable (range 1..16)",
 			},
 		},
@@ -226,6 +226,7 @@ func TestCapabilityHelpProjectsConstraintsAndSafetyRules(t *testing.T) {
 			wants: []string{
 				"--tide-station-id string   QWeather tide station ID (required)",
 				"--date string              UTC date from today through 9 days ahead in YYYY-MM-DD form (required)",
+				"--date \"$(date -u +%F)\"",
 				"pass --allow-product marine before network I/O",
 			},
 		},

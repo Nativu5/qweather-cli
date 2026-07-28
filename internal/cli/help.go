@@ -75,7 +75,7 @@ func capabilityHelpConstraints(capability catalog.Capability) []string {
 
 	switch capability.ID {
 	case "weather.indices.forecast":
-		constraints = append(constraints, "--index and --all-indices are mutually exclusive; --index values must be between 1 and 16.")
+		constraints = append(constraints, "Exactly one of --index or --all-indices is required; --index values must be between 1 and 16 and unique.")
 	case "solar.radiation.forecast":
 		constraints = append(constraints, "--include poa requires --tilt-deg and --azimuth-deg.")
 	case "account.requests.stats":
@@ -104,7 +104,7 @@ func capabilityExample(capability catalog.Capability) string {
 	case "weather.indices.forecast":
 		return "  qweather weather indices --place Beijing --days 1 --all-indices --output text"
 	case "marine.tide":
-		return "  qweather marine tide --tide-station-id P66981 --date YYYY-MM-DD --allow-product marine --output text"
+		return "  qweather marine tide --tide-station-id P66981 --date \"$(date -u +%F)\" --allow-product marine --output text"
 	case "solar.radiation.forecast":
 		return "  qweather solar forecast --coordinate geo:39.9042,116.4074 --allow-product solar --output text"
 	default:
