@@ -164,7 +164,7 @@ func records() []Capability {
 			"https://dev.qweather.com/docs/api/indices/indices-forecast/", TargetPlace,
 			appendFlags(placeFlags(true, false),
 				intFlag("days", "forecast length in days", true, 1, 3),
-				intSliceFlag("index", "weather index type; repeatable"),
+				rangedIntSliceFlag("index", "weather index type; repeatable", 1, 16),
 				boolFlag("all-indices", "request every weather index type"),
 			),
 			upstream("/v7/indices/{days}", ResponseCodeReferV1), BillingBasic, GateNone,

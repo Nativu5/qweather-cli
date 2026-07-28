@@ -16,8 +16,8 @@ func rangedIntFlag(name, usage string, required bool, min, max float64) Flag {
 	return Flag{Name: name, Usage: usage, Kind: FlagInt, Required: required, Min: &min, Max: &max}
 }
 
-func intSliceFlag(name, usage string) Flag {
-	return Flag{Name: name, Usage: usage, Kind: FlagIntSlice}
+func rangedIntSliceFlag(name, usage string, min, max float64) Flag {
+	return Flag{Name: name, Usage: usage, Kind: FlagIntSlice, Min: &min, Max: &max}
 }
 
 func stringSliceFlag(name, usage string, values ...string) Flag {
