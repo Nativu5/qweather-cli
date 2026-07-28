@@ -125,6 +125,10 @@ func TestClientRejectsCrossHostRedirectBeforeTargetRequest(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "cross-host redirect rejected") {
 		t.Fatalf("Do() error = %v", err)
 	}
+	var clientError *ClientError
+	if !errors.As(err, &clientError) || clientError.Kind != ErrorProtocol {
+		t.Fatalf("Do() ClientError = %#v", clientError)
+	}
 	if targetRequests.Load() != 0 {
 		t.Fatalf("redirect target received %d request(s)", targetRequests.Load())
 	}
@@ -153,6 +157,14 @@ func TestClientRejectsHTTPSDowngradeRedirectBeforeTargetRequest(t *testing.T) {
 	_, err = client.Do(context.Background(), Request{Path: "/redirect"})
 	if err == nil || !strings.Contains(err.Error(), "non-HTTPS redirect rejected") {
 		t.Fatalf("Do() error = %v", err)
+	}
+	var clientError *ClientError
+	if !errors.As(err, &clientError) || clientError.Kind != ErrorProtocol {
+		t.Fatalf("Do() ClientError = %#v", clientError)
+	}
+	problem := ProblemForError(err, "weather.city.current")
+	if problem.ExitCode != 9 || problem.Code != "UPSTREAM_PROTOCOL_ERROR" || problem.Retryable {
+		t.Fatalf("ProblemForError() = %#v", problem)
 	}
 	if targetRequests.Load() != 0 {
 		t.Fatalf("downgraded target received %d request(s)", targetRequests.Load())
