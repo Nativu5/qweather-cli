@@ -33,6 +33,12 @@ func parsedURL(t *testing.T, value string) *url.URL {
 	return parsed
 }
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (function roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return function(request)
+}
+
 func TestClientBuildsOneSafeGETAndDecompressesGzip(t *testing.T) {
 	var requests atomic.Int32
 	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -119,8 +125,83 @@ func TestClientRejectsCrossHostRedirectBeforeTargetRequest(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "cross-host redirect rejected") {
 		t.Fatalf("Do() error = %v", err)
 	}
+	var clientError *ClientError
+	if !errors.As(err, &clientError) || clientError.Kind != ErrorProtocol {
+		t.Fatalf("Do() ClientError = %#v", clientError)
+	}
 	if targetRequests.Load() != 0 {
 		t.Fatalf("redirect target received %d request(s)", targetRequests.Load())
+	}
+}
+
+func TestClientRejectsHTTPSDowngradeRedirectBeforeTargetRequest(t *testing.T) {
+	var targetRequests atomic.Int32
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Scheme == "http" {
+			targetRequests.Add(1)
+		}
+		return &http.Response{
+			StatusCode: http.StatusFound,
+			Header:     http.Header{"Location": {"http://example.com/downgraded"}},
+			Body:       io.NopCloser(strings.NewReader("")),
+			Request:    request,
+		}, nil
+	})
+	client, err := NewClient("", apiKeyCredentials(t), ClientOptions{
+		Origin:     parsedURL(t, "https://example.com"),
+		HTTPClient: &http.Client{Transport: transport},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Do(context.Background(), Request{Path: "/redirect"})
+	if err == nil || !strings.Contains(err.Error(), "non-HTTPS redirect rejected") {
+		t.Fatalf("Do() error = %v", err)
+	}
+	var clientError *ClientError
+	if !errors.As(err, &clientError) || clientError.Kind != ErrorProtocol {
+		t.Fatalf("Do() ClientError = %#v", clientError)
+	}
+	problem := ProblemForError(err, "weather.city.current")
+	if problem.ExitCode != 9 || problem.Code != "UPSTREAM_PROTOCOL_ERROR" || problem.Retryable {
+		t.Fatalf("ProblemForError() = %#v", problem)
+	}
+	if targetRequests.Load() != 0 {
+		t.Fatalf("downgraded target received %d request(s)", targetRequests.Load())
+	}
+}
+
+func TestClientAllowsSameHostHTTPSRedirect(t *testing.T) {
+	var targetRequests atomic.Int32
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/redirect" {
+			http.Redirect(writer, request, "/target", http.StatusFound)
+			return
+		}
+		if request.URL.Path != "/target" {
+			t.Errorf("unexpected request path %q", request.URL.Path)
+			return
+		}
+		targetRequests.Add(1)
+		if got := request.Header.Get("X-QW-Api-Key"); got != "test-secret" {
+			t.Errorf("API key header = %q", got)
+		}
+		_, _ = io.WriteString(writer, `{\"code\":\"200\",\"now\":{\"temp\":\"20\"}}`)
+	}))
+	defer server.Close()
+	client, err := NewClient("", apiKeyCredentials(t), ClientOptions{
+		Origin:     parsedURL(t, server.URL),
+		HTTPClient: server.Client(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.Do(context.Background(), Request{Path: "/redirect"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || targetRequests.Load() != 1 {
+		t.Fatalf("response status = %d, target requests = %d", response.StatusCode, targetRequests.Load())
 	}
 }
 

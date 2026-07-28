@@ -45,6 +45,14 @@ type ClientError struct {
 	Err  error
 }
 
+type redirectPolicyError struct {
+	message string
+}
+
+func (e *redirectPolicyError) Error() string {
+	return e.message
+}
+
 func (e *ClientError) Error() string {
 	return e.Err.Error()
 }
@@ -87,11 +95,14 @@ func NewClient(apiHost string, credentials auth.Credentials, options ClientOptio
 		if len(via) == 0 {
 			return nil
 		}
+		if request.URL.Scheme != "https" {
+			return &redirectPolicyError{message: "non-HTTPS redirect rejected"}
+		}
 		if !strings.EqualFold(request.URL.Host, via[0].URL.Host) {
-			return errors.New("cross-host redirect rejected")
+			return &redirectPolicyError{message: "cross-host redirect rejected"}
 		}
 		if len(via) >= 10 {
-			return errors.New("too many redirects")
+			return &redirectPolicyError{message: "too many redirects"}
 		}
 		return nil
 	}
@@ -136,7 +147,12 @@ func (c *Client) Do(ctx context.Context, request Request) (Response, error) {
 
 	httpResponse, err := c.httpClient.Do(httpRequest)
 	if err != nil {
-		return Response{}, &ClientError{Kind: ErrorNetwork, Err: fmt.Errorf("perform provider request: %w", err)}
+		kind := ErrorNetwork
+		var redirectError *redirectPolicyError
+		if errors.As(err, &redirectError) {
+			kind = ErrorProtocol
+		}
+		return Response{}, &ClientError{Kind: kind, Err: fmt.Errorf("perform provider request: %w", err)}
 	}
 	defer httpResponse.Body.Close()
 	reader := io.Reader(httpResponse.Body)
