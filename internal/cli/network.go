@@ -34,7 +34,11 @@ func addNetworkCommands(root *cobra.Command, registry *catalog.Registry, runtime
 				parent.AddCommand(leaf)
 				nodes[key] = leaf
 			} else {
-				branch := &cobra.Command{Use: part, Short: branchSummary(key)}
+				summary, err := networkBranchSummary(key)
+				if err != nil {
+					return err
+				}
+				branch := &cobra.Command{Use: part, Short: summary}
 				parent.AddCommand(branch)
 				nodes[key] = branch
 			}
@@ -44,17 +48,15 @@ func addNetworkCommands(root *cobra.Command, registry *catalog.Registry, runtime
 	return nil
 }
 
-func branchSummary(path string) string {
-	return "QWeather " + path + " commands"
-}
-
 func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *CommonOptions, renderer *output.Renderer) (*cobra.Command, error) {
 	input := &catalog.Input{}
 	parts := strings.Fields(capability.CommandPath)
 	command := &cobra.Command{
-		Use:   parts[len(parts)-1],
-		Short: capability.Summary,
-		Args:  cobra.NoArgs,
+		Use:     parts[len(parts)-1],
+		Short:   capability.Summary,
+		Long:    capabilityLongHelp(capability),
+		Example: capabilityExample(capability),
+		Args:    cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			changed := changedFlags(command)
 			if problem := validateInvocation(capability, *input, *common, changed); problem != nil {

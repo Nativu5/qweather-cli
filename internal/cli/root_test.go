@@ -127,6 +127,227 @@ func TestRootHelpHasNoUndocumentedCompletionCommand(t *testing.T) {
 	}
 }
 
+func TestNetworkBranchHelpUsesUsefulDescriptions(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		want     string
+		unwanted string
+	}{
+		{
+			name:     "weather",
+			args:     []string{"weather", "--help"},
+			want:     "Weather observations, forecasts, precipitation, indices, and history",
+			unwanted: "QWeather weather commands",
+		},
+		{
+			name:     "weather city",
+			args:     []string{"weather", "city", "--help"},
+			want:     "Weather for cities and named places",
+			unwanted: "QWeather weather city commands",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			exit, stdout, stderr := runCommand(t, &recordingRuntime{}, test.args...)
+			if exit != 0 || stderr != "" {
+				t.Fatalf("exit=%d stderr=%q", exit, stderr)
+			}
+			if !strings.Contains(stdout, test.want) || strings.Contains(stdout, test.unwanted) {
+				t.Fatalf("help=%q; want %q and not %q", stdout, test.want, test.unwanted)
+			}
+		})
+	}
+}
+
+func TestCapabilityHelpProjectsConstraintsAndSafetyRules(t *testing.T) {
+	tests := []struct {
+		name  string
+		args  []string
+		wants []string
+	}{
+		{
+			name: "daily forecast",
+			args: []string{"weather", "city", "daily", "--help"},
+			wants: []string{
+				"Exactly one of --place, --place-id, or --coordinate is required.",
+				"--country and --adm are valid only with --place.",
+				"--days int            forecast length in days (required; one of 3, 7, 10, 15, 30)",
+				"Examples:",
+				"qweather weather city daily --place Beijing --days 7 --output text",
+			},
+		},
+		{
+			name: "weather indices",
+			args: []string{"weather", "indices", "--help"},
+			wants: []string{
+				"--index and --all-indices are mutually exclusive; --index values must be between 1 and 16.",
+				"--index ints          weather index type; repeatable (range 1..16)",
+			},
+		},
+		{
+			name: "grid target",
+			args: []string{"weather", "grid", "current", "--help"},
+			wants: []string{
+				"The selected target must resolve to coordinates.",
+			},
+		},
+		{
+			name: "history target",
+			args: []string{"weather", "history", "--help"},
+			wants: []string{
+				"The selected target must resolve to a QWeather Location ID.",
+			},
+		},
+		{
+			name: "geo lookup",
+			args: []string{"geo", "city", "lookup", "--help"},
+			wants: []string{
+				"Exactly one of --query, --place-id, or --coordinate is required.",
+				"--country and --adm are valid only with --query.",
+			},
+		},
+		{
+			name: "solar forecast",
+			args: []string{"solar", "forecast", "--help"},
+			wants: []string{
+				"--hours int              forecast length in hours (range 1..60) (default 24)",
+				"--interval-min int",
+				"forecast interval in minutes (one of 15, 30, 60) (default 60)",
+				"--include strings",
+				"optional dataset; repeatable (one of weather, poa)",
+				"--include poa requires --tilt-deg and --azimuth-deg.",
+				"pass --allow-product solar before network I/O",
+			},
+		},
+		{
+			name: "marine tide",
+			args: []string{"marine", "tide", "--help"},
+			wants: []string{
+				"--tide-station-id string   QWeather tide station ID (required)",
+				"--date string              UTC date from today through 9 days ahead in YYYY-MM-DD form (required)",
+				"pass --allow-product marine before network I/O",
+			},
+		},
+		{
+			name: "account usage",
+			args: []string{"account", "usage", "--help"},
+			wants: []string{
+				"--project-id and --credential-id are mutually exclusive.",
+				"pass --allow-sensitive-output account before network I/O",
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			exit, stdout, stderr := runCommand(t, &recordingRuntime{}, test.args...)
+			if exit != 0 || stderr != "" {
+				t.Fatalf("exit=%d stderr=%q", exit, stderr)
+			}
+			for _, want := range test.wants {
+				if !strings.Contains(stdout, want) {
+					t.Errorf("help missing %q:\n%s", want, stdout)
+				}
+			}
+		})
+	}
+}
+
+func TestCurrentCapabilityHelpContainsRegistryFlagMetadata(t *testing.T) {
+	registry, err := catalog.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, capability := range registry.Current() {
+		t.Run(capability.ID, func(t *testing.T) {
+			args := append(strings.Fields(capability.CommandPath), "--help")
+			runtime := &recordingRuntime{}
+			exit, stdout, stderr := runCommand(t, runtime, args...)
+			if exit != 0 || stderr != "" {
+				t.Fatalf("exit=%d stderr=%q", exit, stderr)
+			}
+			if len(runtime.invocations) != 0 {
+				t.Fatalf("help invoked network runtime: %#v", runtime.invocations)
+			}
+			for _, flag := range capability.Flags {
+				line := helpFlagLine(stdout, flag)
+				if line == "" {
+					t.Errorf("help is missing --%s", flag.Name)
+					continue
+				}
+				if flag.Required && !strings.Contains(line, "(required") {
+					t.Errorf("--%s is not marked required: %s", flag.Name, line)
+				}
+				if len(flag.Enum) > 0 && !strings.Contains(line, "one of "+strings.Join(flag.Enum, ", ")) {
+					t.Errorf("--%s is missing enum values: %s", flag.Name, line)
+				}
+				if len(flag.IntEnum) > 0 {
+					values := make([]string, len(flag.IntEnum))
+					for index, value := range flag.IntEnum {
+						values[index] = strconv.Itoa(value)
+					}
+					if !strings.Contains(line, "one of "+strings.Join(values, ", ")) {
+						t.Errorf("--%s is missing integer enum values: %s", flag.Name, line)
+					}
+				}
+				if flag.Min != nil || flag.Max != nil {
+					if !strings.Contains(line, "range "+flagRange(flag.Min, flag.Max)) {
+						t.Errorf("--%s is missing range: %s", flag.Name, line)
+					}
+				}
+				if flag.Default != "" && !strings.Contains(line, "(default "+flag.Default+")") {
+					t.Errorf("--%s is missing default: %s", flag.Name, line)
+				}
+			}
+
+			safety := ""
+			switch capability.ProductGate {
+			case catalog.GateMarine:
+				safety = "pass --allow-product marine before network I/O"
+			case catalog.GateSolar:
+				safety = "pass --allow-product solar before network I/O"
+			case catalog.GateSensitiveAccount:
+				safety = "pass --allow-sensitive-output account before network I/O"
+			}
+			if safety != "" && !strings.Contains(stdout, safety) {
+				t.Errorf("help is missing Product Gate safety boundary %q:\n%s", safety, stdout)
+			}
+		})
+	}
+}
+
+func helpFlagLine(help string, flag catalog.Flag) string {
+	prefix := "--" + flag.Name + " "
+	if flag.Kind != catalog.FlagBool {
+		prefix += flagTypeName(flag.Kind) + " "
+	}
+	for _, line := range strings.Split(help, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, prefix) {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func flagTypeName(kind catalog.FlagKind) string {
+	switch kind {
+	case catalog.FlagString:
+		return "string"
+	case catalog.FlagStringSlice:
+		return "strings"
+	case catalog.FlagInt, catalog.FlagFloat:
+		if kind == catalog.FlagFloat {
+			return "float"
+		}
+		return "int"
+	case catalog.FlagIntSlice:
+		return "ints"
+	default:
+		return ""
+	}
+}
+
 func TestCapabilityDiscoveryIsOfflineAndDeterministic(t *testing.T) {
 	runtime := &recordingRuntime{}
 	exit1, stdout1, stderr1 := runCommand(t, runtime, "capability", "list", "--lifecycle", "all", "--output", "json")

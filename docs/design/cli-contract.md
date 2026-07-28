@@ -76,6 +76,16 @@ qweather
 
 The first nine branches contain 28 network capabilities. `capability`, `cache`, `config`, and `version` are local control commands and do not count toward the provider surface.
 
+## Help and command discovery
+
+`--help` is an offline, deterministic view of the compiled Capability registry
+and never performs provider I/O. Network branch summaries describe the domain
+and target of their child commands. Leaf help projects registry-defined flag
+metadata, including required inputs, enumerated values, numeric ranges, and
+defaults, and explains command-level target combinations, conditional flags,
+and Product Gates before the usage block. Representative examples are static
+text only; they are never executed while rendering help.
+
 ## Common execution flags
 
 | Flag | Meaning |

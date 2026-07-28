@@ -27,67 +27,68 @@ func bindCapabilityFlags(command *cobra.Command, input *catalog.Input, flags []c
 			}
 			integerDefault = value
 		}
+		usage := capabilityFlagUsage(flag)
 		switch flag.Name {
 		case "place":
-			command.Flags().StringVar(&input.Place, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.Place, flag.Name, "", usage)
 		case "place-id":
-			command.Flags().StringVar(&input.PlaceID, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.PlaceID, flag.Name, "", usage)
 		case "coordinate":
-			command.Flags().StringVar(&input.Coordinate, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.Coordinate, flag.Name, "", usage)
 		case "country":
-			command.Flags().StringVar(&input.Country, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.Country, flag.Name, "", usage)
 		case "adm":
-			command.Flags().StringVar(&input.Adm, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.Adm, flag.Name, "", usage)
 		case "query":
-			command.Flags().StringVar(&input.Query, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.Query, flag.Name, "", usage)
 		case "poi-type":
-			command.Flags().StringVar(&input.POIType, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.POIType, flag.Name, "", usage)
 		case "limit":
-			command.Flags().IntVar(&input.Limit, flag.Name, integerDefault, flag.Usage)
+			command.Flags().IntVar(&input.Limit, flag.Name, integerDefault, usage)
 		case "lang":
-			command.Flags().StringVar(&input.Language, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.Language, flag.Name, "", usage)
 		case "unit":
-			command.Flags().StringVar(&input.Unit, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.Unit, flag.Name, "", usage)
 		case "days":
-			command.Flags().IntVar(&input.Days, flag.Name, integerDefault, flag.Usage)
+			command.Flags().IntVar(&input.Days, flag.Name, integerDefault, usage)
 		case "hours":
-			command.Flags().IntVar(&input.Hours, flag.Name, integerDefault, flag.Usage)
+			command.Flags().IntVar(&input.Hours, flag.Name, integerDefault, usage)
 		case "index":
-			command.Flags().IntSliceVar(&input.Indices, flag.Name, nil, flag.Usage)
+			command.Flags().IntSliceVar(&input.Indices, flag.Name, nil, usage)
 		case "all-indices":
-			command.Flags().BoolVar(&input.AllIndices, flag.Name, false, flag.Usage)
+			command.Flags().BoolVar(&input.AllIndices, flag.Name, false, usage)
 		case "date":
-			command.Flags().StringVar(&input.Date, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.Date, flag.Name, "", usage)
 		case "local-time":
-			command.Flags().BoolVar(&input.LocalTime, flag.Name, false, flag.Usage)
+			command.Flags().BoolVar(&input.LocalTime, flag.Name, false, usage)
 		case "air-station-id":
-			command.Flags().StringVar(&input.AirStationID, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.AirStationID, flag.Name, "", usage)
 		case "storm-id":
-			command.Flags().StringVar(&input.StormID, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.StormID, flag.Name, "", usage)
 		case "year":
-			command.Flags().IntVar(&input.Year, flag.Name, integerDefault, flag.Usage)
+			command.Flags().IntVar(&input.Year, flag.Name, integerDefault, usage)
 		case "tide-station-id":
-			command.Flags().StringVar(&input.TideStationID, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.TideStationID, flag.Name, "", usage)
 		case "interval-min":
-			command.Flags().IntVar(&input.IntervalMinutes, flag.Name, integerDefault, flag.Usage)
+			command.Flags().IntVar(&input.IntervalMinutes, flag.Name, integerDefault, usage)
 		case "include":
-			command.Flags().StringSliceVar(&input.Includes, flag.Name, nil, flag.Usage)
+			command.Flags().StringSliceVar(&input.Includes, flag.Name, nil, usage)
 		case "tilt-deg":
-			command.Flags().IntVar(&input.TiltDegrees, flag.Name, integerDefault, flag.Usage)
+			command.Flags().IntVar(&input.TiltDegrees, flag.Name, integerDefault, usage)
 		case "azimuth-deg":
-			command.Flags().IntVar(&input.AzimuthDegrees, flag.Name, integerDefault, flag.Usage)
+			command.Flags().IntVar(&input.AzimuthDegrees, flag.Name, integerDefault, usage)
 		case "at":
-			command.Flags().StringVar(&input.At, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.At, flag.Name, "", usage)
 		case "altitude-m":
-			command.Flags().Float64Var(&input.AltitudeMeters, flag.Name, 0, flag.Usage)
+			command.Flags().Float64Var(&input.AltitudeMeters, flag.Name, 0, usage)
 		case "project-id":
-			command.Flags().StringVar(&input.ProjectID, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.ProjectID, flag.Name, "", usage)
 		case "credential-id":
-			command.Flags().StringVar(&input.CredentialID, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.CredentialID, flag.Name, "", usage)
 		case "allow-product":
-			command.Flags().StringVar(&input.AllowProduct, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.AllowProduct, flag.Name, "", usage)
 		case "allow-sensitive-output":
-			command.Flags().StringVar(&input.AllowSensitive, flag.Name, "", flag.Usage)
+			command.Flags().StringVar(&input.AllowSensitive, flag.Name, "", usage)
 		default:
 			return fmt.Errorf("unsupported registry flag %q", flag.Name)
 		}

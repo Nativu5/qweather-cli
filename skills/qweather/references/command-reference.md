@@ -540,7 +540,7 @@ Use only Current Capabilities below. Provider paths and authentication are imple
 | `--adm` | no | `string` | — | administrative-area filter for --place |
 | `--lang` | no | `string` | — | response language |
 | `--days` | yes | `int` | one of `1`, `3` | forecast length in days |
-| `--index` | no | `int-slice` | — | weather index type; repeatable |
+| `--index` | no | `int-slice` | range `1..16` | weather index type; repeatable |
 | `--all-indices` | no | `bool` | — | request every weather index type |
 
 ### `qweather weather minutely`
