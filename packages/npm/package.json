@@ -1,6 +1,6 @@
 {
   "name": "qweather-cli",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Install and launch the QWeather CLI release binary",
   "license": "Apache-2.0",
   "repository": {

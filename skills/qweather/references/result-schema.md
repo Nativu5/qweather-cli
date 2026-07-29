@@ -2,7 +2,7 @@
 
 # Machine result and problem reference
 
-Version: `0.1.1`
+Version: `0.2.0`
 
 Sources: Go output types, schema constants, and stable problem-code catalog.
 
