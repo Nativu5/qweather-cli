@@ -118,22 +118,25 @@ qweather cache clear
 > [!TIP]
 > 根据 QWeather 文档要求，GEO 数据不会被缓存。
 
-## 付费 API
+## Product Gate
 
-QWeather 按产品计费，部分产品没有免费额度。根据 QWeather 当前计费规则，CLI 会要求在请求前通过命令行明确确认这些产品：热带气旋和潮汐使用 `--allow-product marine`，太阳辐射使用 `--allow-product solar`。
+QWeather 按产品计费，部分产品没有免费额度；Account 命令还会返回敏感账户数据。热带气旋、潮汐、太阳辐射和 Account 命令必须使用 leaf-local `--yes` 明确确认当前调用。
 
 ```sh
 qweather marine tide \
   --tide-station-id <station-id> \
   --date <YYYY-MM-DD> \
-  --allow-product marine
+  --yes
 
 qweather solar forecast \
   --coordinate geo:31.2304,121.4737 \
-  --allow-product solar
+  --yes
+
+qweather account usage \
+  --yes
 ```
 
-这些参数不会触发交互式提示，适合自动化环境。潮汐日期必须是 UTC 今天至未来 9 天内。具体收费标准以官方文档 [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/) 为准。
+`--yes` 只确认当前命令，不会触发交互式 `y/N` 提示，也不能写入配置或持久化。潮汐日期必须是 UTC 今天至未来 9 天内。具体收费标准以官方文档 [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/) 为准。
 
 ## 设计文档
 

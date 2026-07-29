@@ -28,6 +28,70 @@ func TestNetworkBranchHelpUsesSemanticSummaries(t *testing.T) {
 	}
 }
 
+func TestProductGateUsesLeafLocalYesFlag(t *testing.T) {
+	root := newTestRoot(t, &recordingRuntime{})
+	registry, err := catalog.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, capability := range registry.Current() {
+		t.Run(capability.ID, func(t *testing.T) {
+			command, _, err := root.Find(strings.Fields(capability.CommandPath))
+			if err != nil {
+				t.Fatal(err)
+			}
+			yes := command.Flags().Lookup("yes")
+			if capability.ProductGate == catalog.GateNone {
+				if yes != nil {
+					t.Fatal("ungated capability exposes --yes")
+				}
+			} else if yes == nil || yes.Value.Type() != "bool" || yes.Shorthand != "" {
+				t.Fatalf("gated capability --yes = %#v", yes)
+			}
+			for _, removed := range []string{"allow-product", "allow-sensitive-output"} {
+				if command.Flags().Lookup(removed) != nil {
+					t.Errorf("help still exposes removed --%s", removed)
+				}
+			}
+		})
+	}
+	for _, path := range []string{"capability list", "config check", "cache status", "version"} {
+		command, _, err := root.Find(strings.Fields(path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if command.Flags().Lookup("yes") != nil {
+			t.Errorf("local command %q exposes --yes", path)
+		}
+	}
+}
+
+func TestRemovedProductGateFlagsAreUnknown(t *testing.T) {
+	tests := [][]string{
+		{"marine", "tide", "--allow-product", "marine"},
+		{"account", "usage", "--allow-sensitive-output", "account"},
+	}
+	for _, args := range tests {
+		exit, stdout, stderr := runCommand(t, &recordingRuntime{}, args...)
+		if exit != 2 || stdout != "" || !strings.Contains(stderr, "unknown flag") {
+			t.Fatalf("args=%v exit=%d stdout=%q stderr=%q", args, exit, stdout, stderr)
+		}
+	}
+}
+
+func TestProductGateYesReachesRuntime(t *testing.T) {
+	runtime := &recordingRuntime{}
+	exit, _, stderr := runCommand(t, runtime,
+		"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--yes",
+	)
+	if exit != 0 || stderr != "" || len(runtime.invocations) != 1 {
+		t.Fatalf("exit=%d stderr=%q invocations=%d", exit, stderr, len(runtime.invocations))
+	}
+	if !runtime.invocations[0].GateAcknowledged {
+		t.Fatal("--yes did not acknowledge the Product Gate")
+	}
+}
+
 func TestRepresentativeCapabilityHelpRules(t *testing.T) {
 	tests := []struct {
 		path  []string
@@ -137,11 +201,11 @@ func helpFlagLine(help string, flag catalog.Flag) string {
 func expectedSafetyHelp(gate catalog.ProductGate) string {
 	switch gate {
 	case catalog.GateMarine:
-		return "pass --allow-product marine before network I/O"
+		return "pass --yes to confirm this invocation before network I/O"
 	case catalog.GateSolar:
-		return "pass --allow-product solar before network I/O"
+		return "pass --yes to confirm this invocation before network I/O"
 	case catalog.GateSensitiveAccount:
-		return "pass --allow-sensitive-output account before network I/O"
+		return "pass --yes to confirm this invocation before network I/O"
 	default:
 		return ""
 	}

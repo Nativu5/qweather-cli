@@ -68,9 +68,6 @@ func records() []Capability {
 	langFlag := stringFlag("lang", "response language", false)
 	coordinateFlag := stringFlag("coordinate", "coordinate in geo:<lat>,<lon> form", true)
 	poiTypeFlag := stringFlag("poi-type", "POI kind", true, "scenic", "tide-station")
-	allowMarine := stringFlag("allow-product", "acknowledge a billed product", false, "marine")
-	allowSolar := stringFlag("allow-product", "acknowledge a billed product", false, "solar")
-	allowAccount := stringFlag("allow-sensitive-output", "acknowledge sensitive account output", false, "account")
 	solarHours := rangedIntFlag("hours", "forecast length in hours", false, 1, 60)
 	solarHours.Default = "24"
 	solarInterval := intFlag("interval-min", "forecast interval in minutes", false, 15, 30, 60)
@@ -214,28 +211,28 @@ func records() []Capability {
 		current(
 			"storm.list", "storm list", "storm", "List tropical storms",
 			"https://dev.qweather.com/docs/api/tropical-cyclone/storm-list/", TargetNone,
-			[]Flag{intFlag("year", "current or previous UTC calendar year", true), allowMarine},
+			[]Flag{intFlag("year", "current or previous UTC calendar year", true)},
 			upstream("/v7/tropical/storm-list", ResponseCodeReferV1), BillingMarine, GateMarine,
 			CachePolicy{Mode: CacheEnabled, TTL: 20 * time.Minute, InactiveTTL: time.Hour, Boundary: BoundaryNone, Evidence: evidenceOfficial},
 		),
 		current(
 			"storm.track", "storm track", "storm", "Get a tropical storm track",
 			"https://dev.qweather.com/docs/api/tropical-cyclone/storm-track/", TargetStorm,
-			[]Flag{stringFlag("storm-id", "QWeather storm ID", true), allowMarine},
+			[]Flag{stringFlag("storm-id", "QWeather storm ID", true)},
 			upstream("/v7/tropical/storm-track", ResponseCodeReferV1), BillingMarine, GateMarine,
 			CachePolicy{Mode: CacheEnabled, TTL: 20 * time.Minute, InactiveTTL: time.Hour, Boundary: BoundaryNone, Evidence: evidenceOfficial},
 		),
 		current(
 			"storm.forecast", "storm forecast", "storm", "Get a tropical storm forecast",
 			"https://dev.qweather.com/docs/api/tropical-cyclone/storm-forecast/", TargetStorm,
-			[]Flag{stringFlag("storm-id", "QWeather storm ID", true), allowMarine},
+			[]Flag{stringFlag("storm-id", "QWeather storm ID", true)},
 			upstream("/v7/tropical/storm-forecast", ResponseCodeReferV1), BillingMarine, GateMarine,
 			CachePolicy{Mode: CacheEnabled, TTL: 20 * time.Minute, InactiveTTL: time.Hour, Boundary: BoundaryNone, Evidence: evidenceOfficial},
 		),
 		current(
 			"marine.tide", "marine tide", "marine", "Get tide forecasts for a station",
 			"https://dev.qweather.com/docs/api/ocean/tide/", TargetTideStation,
-			[]Flag{stringFlag("tide-station-id", "QWeather tide station ID", true), stringFlag("date", "UTC date from today through 9 days ahead in YYYY-MM-DD form", true), allowMarine},
+			[]Flag{stringFlag("tide-station-id", "QWeather tide station ID", true), stringFlag("date", "UTC date from today through 9 days ahead in YYYY-MM-DD form", true)},
 			upstream("/v7/ocean/tide", ResponseCodeReferV1), BillingMarine, GateMarine,
 			policy(CacheEnabled, 8*time.Hour, BoundaryNone, evidenceOfficial),
 		),
@@ -248,7 +245,7 @@ func records() []Capability {
 				stringSliceFlag("include", "optional dataset; repeatable", "weather", "poa"),
 				rangedIntFlag("tilt-deg", "panel tilt in degrees", false, 0, 90),
 				rangedIntFlag("azimuth-deg", "panel azimuth in degrees", false, 0, 359),
-				boolFlag("local-time", "return local timestamps"), allowSolar,
+				boolFlag("local-time", "return local timestamps"),
 			),
 			upstream("/solarradiation/v1/forecast/{latitude}/{longitude}", ResponseMetadataV1),
 			BillingSolar, GateSolar, policy(CacheEnabled, 6*time.Hour, BoundaryNone, evidenceOfficial),
@@ -280,7 +277,7 @@ func records() []Capability {
 		current(
 			"account.finance.summary", "account finance", "account", "Get account finance summary",
 			"https://dev.qweather.com/docs/api/console/finance/", TargetNone,
-			[]Flag{allowAccount}, upstream("/finance/v1/summary", ResponseConsoleV1),
+			nil, upstream("/finance/v1/summary", ResponseConsoleV1),
 			BillingBasic, GateSensitiveAccount, policy(CacheSensitive, 10*time.Minute, BoundaryNone, evidenceSensitive),
 		),
 		current(
@@ -289,7 +286,6 @@ func records() []Capability {
 			[]Flag{
 				stringFlag("project-id", "filter by project ID", false),
 				stringFlag("credential-id", "filter by credential ID", false),
-				allowAccount,
 			},
 			upstream("/metrics/v1/stats", ResponseConsoleV1), BillingBasic, GateSensitiveAccount,
 			policy(CacheSensitive, 10*time.Minute, BoundaryNone, evidenceSensitive),

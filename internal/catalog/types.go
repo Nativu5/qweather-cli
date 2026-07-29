@@ -150,6 +150,4 @@ type Input struct {
 	AltitudeMeters  float64
 	ProjectID       string
 	CredentialID    string
-	AllowProduct    string
-	AllowSensitive  string
 }

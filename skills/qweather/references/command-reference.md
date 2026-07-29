@@ -27,7 +27,7 @@ Use only Current Capabilities below. Provider paths and authentication are imple
 
 | Flag | Required | Type | Constraints/default | Meaning |
 | --- | --- | --- | --- | --- |
-| `--allow-sensitive-output` | no | `string` | one of `account` | acknowledge sensitive account output |
+| `--yes` | yes | `bool` | — | acknowledge this Capability's Product Gate for this invocation |
 
 ### `qweather account usage`
 
@@ -44,7 +44,7 @@ Use only Current Capabilities below. Provider paths and authentication are imple
 | --- | --- | --- | --- | --- |
 | `--project-id` | no | `string` | — | filter by project ID |
 | `--credential-id` | no | `string` | — | filter by credential ID |
-| `--allow-sensitive-output` | no | `string` | one of `account` | acknowledge sensitive account output |
+| `--yes` | yes | `bool` | — | acknowledge this Capability's Product Gate for this invocation |
 
 ### `qweather air current`
 
@@ -295,7 +295,7 @@ Use only Current Capabilities below. Provider paths and authentication are imple
 | --- | --- | --- | --- | --- |
 | `--tide-station-id` | yes | `string` | — | QWeather tide station ID |
 | `--date` | yes | `string` | — | UTC date from today through 9 days ahead in YYYY-MM-DD form |
-| `--allow-product` | no | `string` | one of `marine` | acknowledge a billed product |
+| `--yes` | yes | `bool` | — | acknowledge this Capability's Product Gate for this invocation |
 
 ### `qweather solar forecast`
 
@@ -321,7 +321,7 @@ Use only Current Capabilities below. Provider paths and authentication are imple
 | `--tilt-deg` | no | `int` | range `0..90` | panel tilt in degrees |
 | `--azimuth-deg` | no | `int` | range `0..359` | panel azimuth in degrees |
 | `--local-time` | no | `bool` | — | return local timestamps |
-| `--allow-product` | no | `string` | one of `solar` | acknowledge a billed product |
+| `--yes` | yes | `bool` | — | acknowledge this Capability's Product Gate for this invocation |
 
 ### `qweather storm forecast`
 
@@ -337,7 +337,7 @@ Use only Current Capabilities below. Provider paths and authentication are imple
 | Flag | Required | Type | Constraints/default | Meaning |
 | --- | --- | --- | --- | --- |
 | `--storm-id` | yes | `string` | — | QWeather storm ID |
-| `--allow-product` | no | `string` | one of `marine` | acknowledge a billed product |
+| `--yes` | yes | `bool` | — | acknowledge this Capability's Product Gate for this invocation |
 
 ### `qweather storm list`
 
@@ -353,7 +353,7 @@ Use only Current Capabilities below. Provider paths and authentication are imple
 | Flag | Required | Type | Constraints/default | Meaning |
 | --- | --- | --- | --- | --- |
 | `--year` | yes | `int` | — | current or previous UTC calendar year |
-| `--allow-product` | no | `string` | one of `marine` | acknowledge a billed product |
+| `--yes` | yes | `bool` | — | acknowledge this Capability's Product Gate for this invocation |
 
 ### `qweather storm track`
 
@@ -369,7 +369,7 @@ Use only Current Capabilities below. Provider paths and authentication are imple
 | Flag | Required | Type | Constraints/default | Meaning |
 | --- | --- | --- | --- | --- |
 | `--storm-id` | yes | `string` | — | QWeather storm ID |
-| `--allow-product` | no | `string` | one of `marine` | acknowledge a billed product |
+| `--yes` | yes | `bool` | — | acknowledge this Capability's Product Gate for this invocation |
 
 ### `qweather weather city current`
 

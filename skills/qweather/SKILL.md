@@ -29,7 +29,8 @@ authentication, validation, caching, presentation, and error classification.
 5. Choose the exact target kind. Read
    [places-and-errors.md](references/places-and-errors.md) before using a human
    place name, resolving an ambiguity, or handling a non-zero result.
-6. Apply Product Gates before network I/O. Read
+6. Apply the leaf-local `--yes` Product Gate before network I/O only when the
+   user clearly selects a gated Capability. Read
    [products-and-attribution.md](references/products-and-attribution.md) for
    Marine, Solar, Storm, Account, cache privacy, and Attribution rules.
 7. Pass an output mode explicitly:

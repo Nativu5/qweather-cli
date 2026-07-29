@@ -50,6 +50,7 @@ func addNetworkCommands(root *cobra.Command, registry *catalog.Registry, runtime
 
 func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *CommonOptions, renderer *output.Renderer) (*cobra.Command, error) {
 	input := &catalog.Input{}
+	gateAcknowledged := false
 	parts := strings.Fields(capability.CommandPath)
 	command := &cobra.Command{
 		Use:     parts[len(parts)-1],
@@ -70,10 +71,11 @@ func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *Comm
 				})
 			}
 			result, problem := runtime.Run(command.Context(), Invocation{
-				Capability: capability,
-				Input:      *input,
-				Common:     *common,
-				Changed:    changed,
+				Capability:       capability,
+				Input:            *input,
+				Common:           *common,
+				Changed:          changed,
+				GateAcknowledged: gateAcknowledged,
 			})
 			if problem != nil {
 				return problem
@@ -97,6 +99,9 @@ func newNetworkLeaf(capability catalog.Capability, runtime Runtime, common *Comm
 	}
 	if err := bindCapabilityFlags(command, input, capability.Flags); err != nil {
 		return nil, fmt.Errorf("%s: %w", capability.ID, err)
+	}
+	if capability.ProductGate != catalog.GateNone {
+		command.Flags().BoolVar(&gateAcknowledged, "yes", false, "acknowledge this capability's Product Gate for this invocation")
 	}
 	return command, nil
 }

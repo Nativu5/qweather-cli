@@ -533,16 +533,16 @@ func TestIssueSevenCapabilitiesExposeExactFlagSets(t *testing.T) {
 	placeFlags := []string{"adm", "coordinate", "country", "place", "place-id"}
 	placeLanguageFlags := append(append([]string(nil), placeFlags...), "lang")
 	expected := map[string][]string{
-		"storm.list":               {"allow-product", "year"},
-		"storm.track":              {"allow-product", "storm-id"},
-		"storm.forecast":           {"allow-product", "storm-id"},
-		"marine.tide":              {"allow-product", "date", "tide-station-id"},
-		"solar.radiation.forecast": append(append([]string(nil), placeFlags...), "allow-product", "azimuth-deg", "hours", "include", "interval-min", "local-time", "tilt-deg"),
+		"storm.list":               {"year"},
+		"storm.track":              {"storm-id"},
+		"storm.forecast":           {"storm-id"},
+		"marine.tide":              {"date", "tide-station-id"},
+		"solar.radiation.forecast": append(append([]string(nil), placeFlags...), "azimuth-deg", "hours", "include", "interval-min", "local-time", "tilt-deg"),
 		"astronomy.sun.events":     append(append([]string(nil), placeFlags...), "date"),
 		"astronomy.moon.events":    append(append([]string(nil), placeLanguageFlags...), "date"),
 		"astronomy.solar.position": append(append([]string(nil), placeFlags...), "altitude-m", "at"),
-		"account.finance.summary":  {"allow-sensitive-output"},
-		"account.requests.stats":   {"allow-sensitive-output", "credential-id", "project-id"},
+		"account.finance.summary":  {},
+		"account.requests.stats":   {"credential-id", "project-id"},
 	}
 	for id, want := range expected {
 		capability := capability(t, id)

@@ -143,7 +143,7 @@ func buildCommandReference(version string, registry *catalog.Registry) []byte {
 		fmt.Fprintf(&output, ", boundary `%s`\n", capability.Cache.Boundary)
 		fmt.Fprintf(&output, "- Response family: `%s`\n", capability.Upstream.ResponseFamily)
 		fmt.Fprintf(&output, "- Official documentation: <%s>\n", capability.DocsURL)
-		if len(capability.Flags) == 0 {
+		if len(capability.Flags) == 0 && capability.ProductGate == catalog.GateNone {
 			output.WriteString("- Capability flags: none\n\n")
 			continue
 		}
@@ -151,6 +151,9 @@ func buildCommandReference(version string, registry *catalog.Registry) []byte {
 		output.WriteString("| --- | --- | --- | --- | --- |\n")
 		for _, flag := range capability.Flags {
 			fmt.Fprintf(&output, "| `--%s` | %s | `%s` | %s | %s |\n", flag.Name, yesNo(flag.Required), flag.Kind, flagConstraints(flag), escapeTable(flag.Usage))
+		}
+		if capability.ProductGate != catalog.GateNone {
+			output.WriteString("| `--yes` | yes | `bool` | — | acknowledge this Capability's Product Gate for this invocation |\n")
 		}
 		output.WriteByte('\n')
 	}

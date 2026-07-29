@@ -87,11 +87,11 @@ func capabilityHelpConstraints(capability catalog.Capability) []string {
 func capabilitySafetyHelp(capability catalog.Capability) string {
 	switch capability.ProductGate {
 	case catalog.GateMarine:
-		return "This capability uses the Marine Billing Group; pass --allow-product marine before network I/O."
+		return "This capability uses the Marine Billing Group; pass --yes to confirm this invocation before network I/O."
 	case catalog.GateSolar:
-		return "This capability uses the Solar Billing Group; pass --allow-product solar before network I/O."
+		return "This capability uses the Solar Billing Group; pass --yes to confirm this invocation before network I/O."
 	case catalog.GateSensitiveAccount:
-		return "This capability returns Sensitive Account Data; pass --allow-sensitive-output account before network I/O."
+		return "This capability returns Sensitive Account Data; pass --yes to confirm this invocation before network I/O."
 	default:
 		return ""
 	}
@@ -104,9 +104,9 @@ func capabilityExample(capability catalog.Capability) string {
 	case "weather.indices.forecast":
 		return "  qweather weather indices --place Beijing --days 1 --all-indices --output text"
 	case "marine.tide":
-		return "  qweather marine tide --tide-station-id P66981 --date \"$(date -u +%F)\" --allow-product marine --output text"
+		return "  qweather marine tide --tide-station-id P66981 --date \"$(date -u +%F)\" --yes --output text"
 	case "solar.radiation.forecast":
-		return "  qweather solar forecast --coordinate geo:39.9042,116.4074 --allow-product solar --output text"
+		return "  qweather solar forecast --coordinate geo:39.9042,116.4074 --yes --output text"
 	default:
 		return ""
 	}

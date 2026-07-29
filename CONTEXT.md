@@ -65,8 +65,8 @@ QWeather's pricing category for a capability: Basic, Marine, or Solar. Basic ide
 _Avoid_: Plan, subscription tier
 
 **Product Gate**:
-An explicit acknowledgement required before a Marine, Solar, or sensitive Account query may perform network I/O.
-_Avoid_: Confirmation prompt, yes flag
+An explicit, non-interactive acknowledgement required before a Marine, Solar, or sensitive Account query may perform network I/O.
+_Avoid_: Confirmation prompt
 
 **Geo Data**:
 Place and POI information returned by GeoAPI. Geo Data may be consumed during an invocation but is never persisted or indexed by this project.
