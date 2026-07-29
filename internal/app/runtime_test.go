@@ -286,8 +286,22 @@ func TestProductGatePrecedesConfigurationAndNetwork(t *testing.T) {
 				Input:      catalog.Input{Place: "Beijing"},
 				Common:     cli.CommonOptions{Timeout: time.Second},
 			})
-			if problem == nil || problem.ExitCode != 4 || problem.Code != "PRODUCT_GATE_REQUIRED" || loads != 0 || clients != 0 {
+			if problem == nil || problem.ExitCode != 4 || problem.Code != "PRODUCT_GATE_REQUIRED" || problem.Message != "this capability requires --yes before network I/O" || loads != 0 || clients != 0 {
 				t.Fatalf("problem=%#v loads=%d clients=%d", problem, loads, clients)
+			}
+		})
+	}
+}
+
+func TestProductGateUsesInvocationAcknowledgement(t *testing.T) {
+	for _, id := range []string{"storm.list", "solar.radiation.forecast", "account.finance.summary"} {
+		t.Run(id, func(t *testing.T) {
+			invocation := cli.Invocation{
+				Capability:       capability(t, id),
+				GateAcknowledged: true,
+			}
+			if problem := checkProductGate(invocation); problem != nil {
+				t.Fatalf("acknowledged gate returned %#v", problem)
 			}
 		})
 	}
@@ -305,19 +319,19 @@ func TestRuntimeExecutesIssueSevenResponseFamiliesWithAcknowledgement(t *testing
 	}{
 		{
 			name: "marine code-refer", id: "storm.track",
-			input: catalog.Input{StormID: "NP_2024", AllowProduct: "marine"},
+			input: catalog.Input{StormID: "NP_2024"},
 			body:  `{"code":"200","isActive":"1","futureField":{"kept":true},"refer":{"sources":["QWeather"]}}`,
 			path:  "/v7/tropical/storm-track", family: "code-refer-v1", attribution: 1,
 		},
 		{
 			name: "solar metadata", id: "solar.radiation.forecast",
-			input: catalog.Input{Coordinate: "geo:39.9,116.4", AllowProduct: "solar"},
+			input: catalog.Input{Coordinate: "geo:39.9,116.4"},
 			body:  `{"metadata":{"attributions":[{"name":"QWeather"}]},"forecasts":[],"futureField":{"kept":true}}`,
 			path:  "/solarradiation/v1/forecast/39.9/116.4", family: "metadata-v1", attribution: 1,
 		},
 		{
 			name: "account console", id: "account.finance.summary",
-			input: catalog.Input{AllowSensitive: "account"},
+			input: catalog.Input{},
 			body:  `{"metadata":{"attributions":[{"name":"QWeather"}]},"balance":10,"futureField":{"kept":true}}`,
 			path:  "/finance/v1/summary", family: "console-v1", attribution: 1,
 		},
@@ -335,7 +349,7 @@ func TestRuntimeExecutesIssueSevenResponseFamiliesWithAcknowledgement(t *testing
 				nil,
 			)
 			result, problem := runtime.Run(context.Background(), cli.Invocation{
-				Capability: capability(t, test.id), Input: test.input,
+				Capability: capability(t, test.id), Input: test.input, GateAcknowledged: true,
 				Common: cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
 			})
 			if problem != nil {
@@ -456,8 +470,9 @@ func TestRuntimeUsesStormResponseTTL(t *testing.T) {
 			runtime.now = func() time.Time { return now }
 			result, problem := runtime.Run(context.Background(), cli.Invocation{
 				Capability: capability(t, "storm.track"),
-				Input:      catalog.Input{StormID: "NP_2024", AllowProduct: "marine"},
+				Input:      catalog.Input{StormID: "NP_2024"},
 				Common:     cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+				GateAcknowledged: true,
 			})
 			if problem != nil {
 				t.Fatal(problem)
@@ -469,8 +484,9 @@ func TestRuntimeUsesStormResponseTTL(t *testing.T) {
 			now = now.Add(30 * time.Minute)
 			second, problem := runtime.Run(context.Background(), cli.Invocation{
 				Capability: capability(t, "storm.track"),
-				Input:      catalog.Input{StormID: "NP_2024", AllowProduct: "marine"},
+				Input:      catalog.Input{StormID: "NP_2024"},
 				Common:     cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+				GateAcknowledged: true,
 			})
 			if problem != nil {
 				t.Fatal(problem)
@@ -541,8 +557,9 @@ func TestRuntimeRequiresSensitiveCacheOptInForAccount(t *testing.T) {
 			)
 			runtime.now = func() time.Time { return now }
 			invocation := cli.Invocation{
-				Capability: capability(t, "account.finance.summary"),
-				Input:      catalog.Input{AllowSensitive: "account"}, Common: cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
+				Capability:       capability(t, "account.finance.summary"),
+				GateAcknowledged: true,
+				Common:           cli.CommonOptions{Timeout: time.Second}, Changed: map[string]bool{},
 			}
 			var last *output.Result
 			for range 2 {

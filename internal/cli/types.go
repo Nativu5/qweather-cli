@@ -19,10 +19,11 @@ type CommonOptions struct {
 }
 
 type Invocation struct {
-	Capability catalog.Capability
-	Input      catalog.Input
-	Common     CommonOptions
-	Changed    map[string]bool
+	Capability       catalog.Capability
+	Input            catalog.Input
+	Common           CommonOptions
+	Changed          map[string]bool
+	GateAcknowledged bool
 }
 
 type CacheControlOptions struct {

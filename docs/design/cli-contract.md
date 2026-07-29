@@ -86,6 +86,23 @@ defaults, and explains command-level target combinations, conditional flags,
 and Product Gates before the usage block. Representative examples are static
 text only; they are never executed while rendering help.
 
+## Product Gates
+
+Every Current Capability whose Product Gate is not `none` exposes the
+leaf-local boolean flag `--yes` without a short alias. The command path selects
+the Capability, and the compiled Capability registry determines whether the
+acknowledgement covers the Marine Billing Group, Solar Billing Group, or
+Sensitive Account Data. Callers never repeat that registry-owned category as a
+flag value.
+
+`--yes` acknowledges only the current invocation. It is never read from
+configuration, profiles, environment variables, or persistent state, and it
+does not enable persistent caching of Sensitive Account Data. The CLI never
+asks an interactive `y/N` question. A missing or false `--yes` produces
+`PRODUCT_GATE_REQUIRED`, exit 4, before configuration loading, cache access,
+Place Spec resolution, Geo Data requests, client construction, or provider
+I/O. Ungated provider commands and local commands do not expose the flag.
+
 ## Common execution flags
 
 | Flag | Meaning |
@@ -189,7 +206,7 @@ All four commands preserve provider Attribution and do not collapse multiple AQI
 | `storm track` | `storm.track` | `--storm-id` | [`GET /v7/tropical/storm-track`](https://dev.qweather.com/docs/api/tropical-cyclone/storm-track/) |
 | `storm forecast` | `storm.forecast` | `--storm-id` | [`GET /v7/tropical/storm-forecast`](https://dev.qweather.com/docs/api/tropical-cyclone/storm-forecast/) |
 
-All storm commands require `--allow-product marine` before any network I/O. The current provider basin is fixed to `NP`; the CLI does not expose unsupported basin flexibility.
+All storm commands require `--yes` before any network I/O. The current provider basin is fixed to `NP`; the CLI does not expose unsupported basin flexibility.
 
 ### Marine — 1
 
@@ -197,7 +214,7 @@ All storm commands require `--allow-product marine` before any network I/O. The 
 | --- | --- | --- | --- |
 | `marine tide` | `marine.tide` | `--tide-station-id`; `--date YYYY-MM-DD` from UTC today through `+9` days | [`GET /v7/ocean/tide`](https://dev.qweather.com/docs/api/ocean/tide/) |
 
-The command requires `--allow-product marine` before any network I/O.
+The command requires `--yes` before any network I/O.
 
 ### Solar radiation — 1
 
@@ -205,7 +222,7 @@ The command requires `--allow-product marine` before any network I/O.
 | --- | --- | --- | --- |
 | `solar forecast` | `solar.radiation.forecast` | coordinate target | [`GET /solarradiation/v1/forecast/{latitude}/{longitude}`](https://dev.qweather.com/docs/api/solar-radiation/solar-radiation-forecast/) |
 
-Optional flags include `--hours 1..60`, `--interval-min 15|30|60`, repeated `--include weather|poa`, integer `--tilt-deg 0..90`, integer `--azimuth-deg 0..359`, and `--local-time`. Hours default to 24 and the interval defaults to 60 minutes. Including `poa` requires both tilt and azimuth. The command requires `--allow-product solar` before any network I/O.
+Optional flags include `--hours 1..60`, `--interval-min 15|30|60`, repeated `--include weather|poa`, integer `--tilt-deg 0..90`, integer `--azimuth-deg 0..359`, and `--local-time`. Hours default to 24 and the interval defaults to 60 minutes. Including `poa` requires both tilt and azimuth. The command requires `--yes` before any network I/O.
 
 ### Astronomy — 3
 
@@ -224,7 +241,7 @@ The position command converts one RFC3339 timestamp into the provider's coupled 
 | `account finance` | `account.finance.summary` | none | [`GET /finance/v1/summary`](https://dev.qweather.com/docs/api/console/finance/) |
 | `account usage` | `account.requests.stats` | optional, mutually exclusive `--project-id` or `--credential-id` | [`GET /metrics/v1/stats`](https://dev.qweather.com/docs/api/console/stats/) |
 
-Both commands require `--allow-sensitive-output account` before network I/O. They are never used as configuration or authentication probes.
+Both commands require `--yes` before network I/O. They are never used as configuration or authentication probes.
 
 The coverage count is `4 + 9 + 1 + 4 + 3 + 1 + 1 + 3 + 2 = 28`.
 
@@ -392,7 +409,13 @@ The symbolic `code` is the primary Machine Problem decision field. Exit codes pr
 
 ## Compatibility
 
-Go binary, npm adapter, and generated Skill references share one semantic version. Within a released major version:
+Go binary, npm adapter, and generated Skill references share one semantic
+version. While the CLI remains below `1.0.0`, an intentional breaking command
+change may ship in a minor release only when a focused Issue records the
+decision and the CLI contract, help, and generated Skill references change
+together.
+
+Beginning with `1.0.0`, within a released major version:
 
 - adding a capability or optional flag is additive;
 - command removal or rename, a new required input, Machine Result or Machine Problem meaning changes, or exit-code meaning changes require a major release;

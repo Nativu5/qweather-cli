@@ -85,10 +85,6 @@ func bindCapabilityFlags(command *cobra.Command, input *catalog.Input, flags []c
 			command.Flags().StringVar(&input.ProjectID, flag.Name, "", usage)
 		case "credential-id":
 			command.Flags().StringVar(&input.CredentialID, flag.Name, "", usage)
-		case "allow-product":
-			command.Flags().StringVar(&input.AllowProduct, flag.Name, "", usage)
-		case "allow-sensitive-output":
-			command.Flags().StringVar(&input.AllowSensitive, flag.Name, "", usage)
 		default:
 			return fmt.Errorf("unsupported registry flag %q", flag.Name)
 		}
@@ -286,10 +282,6 @@ func stringValue(name string, input catalog.Input) string {
 		return input.ProjectID
 	case "credential-id":
 		return input.CredentialID
-	case "allow-product":
-		return input.AllowProduct
-	case "allow-sensitive-output":
-		return input.AllowSensitive
 	default:
 		return ""
 	}

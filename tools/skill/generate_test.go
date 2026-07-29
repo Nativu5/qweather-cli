@@ -35,6 +35,14 @@ func TestGeneratedReferencesCoverRegistryAndProblemCatalog(t *testing.T) {
 	if got, want := len(registry.Deprecated()), 5; got != want {
 		t.Fatalf("Tombstone count = %d, want %d", got, want)
 	}
+	if got, want := bytes.Count(commands, []byte("| `--yes`")), 7; got != want {
+		t.Fatalf("generated Product Gate flag count = %d, want %d", got, want)
+	}
+	for _, removed := range []string{"--allow-product", "--allow-sensitive-output"} {
+		if bytes.Contains(commands, []byte(removed)) {
+			t.Errorf("generated command reference contains removed flag %s", removed)
+		}
+	}
 
 	schema, err := buildResultSchemaReference("1.2.3")
 	if err != nil {

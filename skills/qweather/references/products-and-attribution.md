@@ -1,6 +1,6 @@
 # Products, caching, and Attribution
 
-Last verified: 2026-07-26
+Last verified: 2026-07-29
 
 ## Product Gates
 
@@ -10,16 +10,19 @@ or optional Geo request. They are not interactive prompts.
 | Surface | Required acknowledgement |
 | --- | --- |
 | Basic weather, Geo, alerts, air, and astronomy | none |
-| Storm and Marine tide | `--allow-product marine` |
-| Solar radiation | `--allow-product solar` |
-| Account finance or usage | `--allow-sensitive-output account` |
+| Storm and Marine tide | `--yes` |
+| Solar radiation | `--yes` |
+| Account finance or usage | `--yes` |
 
-Add a gate only when the user's requested operation clearly selects that
-surface. Never use Account as a credential probe; it returns Sensitive Account
-Data. Treat `--allow-sensitive-output account` as the user's explicit
-acknowledgement, not as provider authorization. When consent is conditional or
-unclear, ask before adding it or making the request. Confirm current commercial
-terms through the official [pricing](https://dev.qweather.com/docs/finance/pricing/)
+Add `--yes` only when the user's requested operation clearly selects that
+gated Capability. The command path and compiled registry determine whether the
+acknowledgement covers the Marine Billing Group, Solar Billing Group, or
+Sensitive Account Data; never ask the user to repeat that category. `--yes` is
+non-interactive, applies only to the current invocation, and is not provider
+authorization or permission to persist Sensitive Account Data. Never use
+Account as a credential probe. When acknowledgement is conditional or unclear,
+ask before adding it or making the request. Confirm current commercial terms
+through the official [pricing](https://dev.qweather.com/docs/finance/pricing/)
 documentation rather than describing Basic as permanently free.
 
 ## Cache and privacy boundaries

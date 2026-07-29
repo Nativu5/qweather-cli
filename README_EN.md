@@ -118,22 +118,25 @@ qweather cache clear
 > [!TIP]
 > Geo data is not cached, as required by the QWeather documentation.
 
-## Billable APIs
+## Product Gates
 
-QWeather bills by product, and some products have no free allowance. Under the current QWeather pricing rules, the CLI requires explicit command-line acknowledgement before these products are requested: tropical cyclone and tide commands use `--allow-product marine`; solar radiation uses `--allow-product solar`.
+QWeather bills by product, some products have no free allowance, and Account commands return sensitive account data. Tropical cyclone, tide, solar-radiation, and Account commands require the leaf-local `--yes` flag to acknowledge the current invocation.
 
 ```sh
 qweather marine tide \
   --tide-station-id <station-id> \
   --date <YYYY-MM-DD> \
-  --allow-product marine
+  --yes
 
 qweather solar forecast \
   --coordinate geo:31.2304,121.4737 \
-  --allow-product solar
+  --yes
+
+qweather account usage \
+  --yes
 ```
 
-These flags do not trigger an interactive prompt and work in automation. The tide date must be between today in UTC and nine days from today. See the official [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/) documentation for current charges.
+`--yes` acknowledges only the current command. It never triggers an interactive `y/N` prompt and cannot be configured or persisted. The tide date must be between today in UTC and nine days from today. See the official [QWeather pricing](https://dev.qweather.com/docs/finance/pricing/) documentation for current charges.
 
 ## Design documentation
 

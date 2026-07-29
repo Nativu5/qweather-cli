@@ -333,19 +333,10 @@ func (r *Runtime) CacheClear(ctx context.Context, options cli.CacheControlOption
 }
 
 func checkProductGate(invocation cli.Invocation) *output.Problem {
-	acknowledged := true
-	switch invocation.Capability.ProductGate {
-	case catalog.GateMarine:
-		acknowledged = invocation.Input.AllowProduct == "marine"
-	case catalog.GateSolar:
-		acknowledged = invocation.Input.AllowProduct == "solar"
-	case catalog.GateSensitiveAccount:
-		acknowledged = invocation.Input.AllowSensitive == "account"
-	}
-	if acknowledged {
+	if invocation.Capability.ProductGate == catalog.GateNone || invocation.GateAcknowledged {
 		return nil
 	}
-	problem := output.NewProblem(4, output.CodeProductGateRequired, "required product or sensitive-output acknowledgement is missing")
+	problem := output.NewProblem(4, output.CodeProductGateRequired, "this capability requires --yes before network I/O")
 	problem.Capability = invocation.Capability.ID
 	return problem
 }
