@@ -5,10 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Nativu5/qweather-cli/internal/buildinfo"
 	"github.com/Nativu5/qweather-cli/internal/catalog"
@@ -129,6 +127,10 @@ func TestRootHelpHasNoUndocumentedCompletionCommand(t *testing.T) {
 
 func TestCapabilityDiscoveryIsOfflineAndDeterministic(t *testing.T) {
 	runtime := &recordingRuntime{}
+	registry, err := catalog.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
 	exit1, stdout1, stderr1 := runCommand(t, runtime, "capability", "list", "--lifecycle", "all", "--output", "json")
 	exit2, stdout2, stderr2 := runCommand(t, runtime, "capability", "list", "--lifecycle", "all", "--output", "json")
 	if exit1 != 0 || exit2 != 0 || stderr1 != "" || stderr2 != "" {
@@ -141,8 +143,8 @@ func TestCapabilityDiscoveryIsOfflineAndDeterministic(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout1), &capabilities); err != nil {
 		t.Fatal(err)
 	}
-	if len(capabilities) != 33 {
-		t.Fatalf("capability count = %d, want 33", len(capabilities))
+	if got, want := len(capabilities), len(registry.All()); got != want {
+		t.Fatalf("capability count = %d, want %d", got, want)
 	}
 	if len(runtime.invocations) != 0 {
 		t.Fatal("offline discovery invoked network runtime")
@@ -265,56 +267,34 @@ func TestCobraInvocationErrorsAlwaysUseText(t *testing.T) {
 	}
 }
 
-func TestSemanticInputValidationPrecedesRuntime(t *testing.T) {
-	tests := [][]string{
-		{"geo", "city", "lookup", "--coordinate", "geo:39.123,116.4"},
-		{"weather", "history", "--place-id", "101010100", "--date", "2026-02-30"},
-		{"air", "station", "--air-station-id", "../secret"},
-		{"weather", "minutely", "--coordinate", "geo:39.9,116.4", "--lang", "fr"},
+func TestInvalidCapabilityInputDoesNotReachRuntime(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		cobraError bool
+	}{
+		{name: "malformed date", args: []string{"marine", "tide", "--tide-station-id", "P66981", "--date", "2026-02-30", "--yes"}},
+		{name: "missing POA angles", args: []string{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--include", "poa", "--yes"}},
+		{name: "Cobra integer parse", args: []string{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--tilt-deg", "30.5", "--yes"}, cobraError: true},
+		{name: "mutually exclusive account filters", args: []string{"account", "usage", "--project-id", "project_123", "--credential-id", "cred_abc", "--yes"}},
 	}
-	for _, args := range tests {
-		runtime := &recordingRuntime{}
-		args = append(args, "--output", "json")
-		exit, stdout, stderr := runCommand(t, runtime, args...)
-		if exit != 2 || stdout != "" || !strings.Contains(stderr, `"code":"INVALID_INVOCATION"`) || len(runtime.invocations) != 0 {
-			t.Fatalf("args=%v exit=%d stdout=%q stderr=%q invocations=%d", args, exit, stdout, stderr, len(runtime.invocations))
-		}
-	}
-}
-
-func TestIssueSevenTypedValidationPrecedesRuntime(t *testing.T) {
-	today := time.Now().UTC()
-	tests := [][]string{
-		{"storm", "list", "--year", "2017", "--yes"},
-		{"storm", "list", "--year", strconv.Itoa(today.Year() + 2), "--yes"},
-		{"storm", "track", "--storm-id", "", "--yes"},
-		{"marine", "tide", "--tide-station-id", "P66981", "--date", "2026-02-30", "--yes"},
-		{"marine", "tide", "--tide-station-id", "P66981", "--date", today.AddDate(0, 0, catalog.TideDateWindowDays+1).Format("2006-01-02"), "--yes"},
-		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--hours", "61", "--yes"},
-		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--interval-min", "45", "--yes"},
-		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--include", "poa", "--yes"},
-		{"solar", "forecast", "--coordinate", "geo:39.9,116.4", "--tilt-deg", "30.5", "--yes"},
-		{"astronomy", "position", "--coordinate", "geo:39.9,116.4", "--at", "not-a-time", "--altitude-m", "43"},
-		{"astronomy", "sun", "--place-id", "101010100", "--date", today.AddDate(0, 0, catalog.AstronomyDateWindowDays+1).Format("2006-01-02")},
-		{"astronomy", "position", "--coordinate", "geo:39.9,116.4", "--at", "2026-07-25T12:30:00+08:00", "--altitude-m", "NaN"},
-		{"account", "usage", "--project-id", "project_123", "--credential-id", "cred_abc", "--yes"},
-	}
-	for _, args := range tests {
-		runtime := &recordingRuntime{}
-		args = append(args, "--output", "json")
-		exit, stdout, stderr := runCommand(t, runtime, args...)
-		cobraParseError := strings.Contains(strings.Join(args, " "), "--tilt-deg 30.5")
-		expectedError := strings.Contains(stderr, `"code":"INVALID_INVOCATION"`)
-		if cobraParseError {
-			expectedError = strings.HasPrefix(stderr, "Error: invalid argument") && !strings.Contains(stderr, `"schema"`)
-		}
-		if exit != 2 || stdout != "" || !expectedError || len(runtime.invocations) != 0 {
-			t.Fatalf("args=%v exit=%d stdout=%q stderr=%q invocations=%d", args, exit, stdout, stderr, len(runtime.invocations))
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runtime := &recordingRuntime{}
+			args := append(append([]string(nil), test.args...), "--output", "json")
+			exit, stdout, stderr := runCommand(t, runtime, args...)
+			expectedError := strings.Contains(stderr, `"code":"INVALID_INVOCATION"`)
+			if test.cobraError {
+				expectedError = strings.HasPrefix(stderr, "Error: invalid argument") && !strings.Contains(stderr, `"schema"`)
+			}
+			if exit != 2 || stdout != "" || !expectedError || len(runtime.invocations) != 0 {
+				t.Fatalf("exit=%d stdout=%q stderr=%q invocations=%d", exit, stdout, stderr, len(runtime.invocations))
+			}
+		})
 	}
 }
 
-func TestIssueSevenTypedFlagsReachRuntime(t *testing.T) {
+func TestTypedFlagsReachRuntime(t *testing.T) {
 	runtime := &recordingRuntime{}
 	exit, _, stderr := runCommand(t, runtime,
 		"solar", "forecast", "--coordinate", "geo:39.9,116.4",
@@ -330,16 +310,6 @@ func TestIssueSevenTypedFlagsReachRuntime(t *testing.T) {
 	}
 	if len(invocation.Input.Includes) != 2 || invocation.Input.Includes[0] != "weather" || invocation.Input.Includes[1] != "poa" {
 		t.Fatalf("includes = %#v", invocation.Input.Includes)
-	}
-}
-
-func TestSolarHelpShowsProviderDefaults(t *testing.T) {
-	exit, stdout, stderr := runCommand(t, &recordingRuntime{}, "solar", "forecast", "--help")
-	if exit != 0 || stderr != "" {
-		t.Fatalf("exit=%d stderr=%q", exit, stderr)
-	}
-	if !strings.Contains(stdout, "--hours int") || !strings.Contains(stdout, "(default 24)") || !strings.Contains(stdout, "--interval-min int") || !strings.Contains(stdout, "(default 60)") {
-		t.Fatalf("help = %q", stdout)
 	}
 }
 

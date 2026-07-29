@@ -46,25 +46,44 @@ func TestDefaultRegistryCoverage(t *testing.T) {
 	}
 }
 
-func TestRegistryHashIsDeterministic(t *testing.T) {
-	first, err := Default()
+func TestRegistryHashReflectsSemanticContent(t *testing.T) {
+	registry, err := Default()
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := New(first.All())
+	baseline, err := registry.Hash()
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstHash, err := first.Hash()
+
+	reordered := registry.All()
+	for left, right := 0, len(reordered)-1; left < right; left, right = left+1, right-1 {
+		reordered[left], reordered[right] = reordered[right], reordered[left]
+	}
+	reorderedRegistry, err := New(reordered)
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondHash, err := second.Hash()
+	reorderedHash, err := reorderedRegistry.Hash()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if firstHash != secondHash {
-		t.Fatalf("hashes differ: %s != %s", firstHash, secondHash)
+	if reorderedHash != baseline {
+		t.Fatalf("record order changed hash: %s != %s", reorderedHash, baseline)
+	}
+
+	changed := registry.All()
+	changed[0].Summary += " updated"
+	changedRegistry, err := New(changed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changedHash, err := changedRegistry.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changedHash == baseline {
+		t.Fatalf("semantic registry change preserved hash %s", baseline)
 	}
 }
 

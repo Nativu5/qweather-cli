@@ -2,20 +2,15 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/Nativu5/qweather-cli/internal/app"
-	"github.com/Nativu5/qweather-cli/internal/buildinfo"
-	"github.com/Nativu5/qweather-cli/internal/catalog"
-	"github.com/Nativu5/qweather-cli/internal/cli"
 )
 
 func TestConfigCheckIsOfflineAndSecretFree(t *testing.T) {
+	isolateQWeatherEnvironment(t)
 	configuration := `
 [profiles.default]
 api_host = "example.qweatherapi.com"
@@ -30,16 +25,8 @@ unit = "metric"
 		t.Fatal(err)
 	}
 	t.Setenv("QWEATHER_API_KEY", "must-not-appear")
-	registry, err := catalog.Default()
-	if err != nil {
-		t.Fatal(err)
-	}
-	root, err := cli.NewRoot(registry, app.NewDefault(), buildinfo.Current("test"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	var stdout, stderr bytes.Buffer
-	exit := cli.Execute(context.Background(), root, []string{"config", "check", "--config", path, "--output", "json"}, &stdout, &stderr)
+	exit := run([]string{"config", "check", "--config", path, "--output", "json"}, &stdout, &stderr)
 	if exit != 0 || stderr.Len() != 0 {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout.String(), stderr.String())
 	}
@@ -56,6 +43,7 @@ unit = "metric"
 }
 
 func TestConfigCheckFailureIsSecretFree(t *testing.T) {
+	isolateQWeatherEnvironment(t)
 	configuration := `
 [profiles.default]
 api_host = "example.qweatherapi.com"
@@ -68,16 +56,8 @@ api_key_env = "QWEATHER_API_KEY"
 		t.Fatal(err)
 	}
 	t.Setenv("QWEATHER_API_KEY", "environment-must-not-appear\nsuffix")
-	registry, err := catalog.Default()
-	if err != nil {
-		t.Fatal(err)
-	}
-	root, err := cli.NewRoot(registry, app.NewDefault(), buildinfo.Current("test"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	var stdout, stderr bytes.Buffer
-	exit := cli.Execute(context.Background(), root, []string{"config", "check", "--config", path}, &stdout, &stderr)
+	exit := run([]string{"config", "check", "--config", path}, &stdout, &stderr)
 	if exit != 3 || stdout.Len() != 0 {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout.String(), stderr.String())
 	}
@@ -86,5 +66,26 @@ api_key_env = "QWEATHER_API_KEY"
 	}
 	if !strings.Contains(stderr.String(), "QWeather configuration is invalid\nCode: CONFIG_INVALID\n") || strings.Contains(stderr.String(), `"schema"`) {
 		t.Fatalf("stderr=%q", stderr.String())
+	}
+}
+
+func isolateQWeatherEnvironment(t *testing.T) {
+	t.Helper()
+	for _, entry := range os.Environ() {
+		name, _, _ := strings.Cut(entry, "=")
+		if !strings.HasPrefix(name, "QWEATHER_") {
+			continue
+		}
+		value, existed := os.LookupEnv(name)
+		if err := os.Unsetenv(name); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if existed {
+				_ = os.Setenv(name, value)
+			} else {
+				_ = os.Unsetenv(name)
+			}
+		})
 	}
 }
