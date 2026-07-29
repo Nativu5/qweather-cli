@@ -285,9 +285,9 @@ stabilization, approval, smoke, publication handoff, failure handling, and
 retirement. The Release gate double-builds and retains one exact-SHA artifact
 set, then smoke-tests the Linux amd64 binary from that set; packaging and
 publication are handled by the independently protected publication workflow.
-The protected reviewer rules and secret names must be verified before every
-live release run; they are part of the release environment, not a one-time
-first-release prerequisite.
+The smoke and publication jobs continue to use separate protected Environments;
+QWeather credentials are supplied only to the approved smoke job and never
+through workflow inputs.
 
 ### Platform matrix
 

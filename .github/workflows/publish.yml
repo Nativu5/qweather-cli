@@ -33,7 +33,6 @@ jobs:
     permissions:
       contents: write
       actions: read
-      issues: read
       id-token: write
     env:
       VERSION: ${{ inputs.version }}
@@ -61,25 +60,16 @@ jobs:
             exit 1
           fi
 
-          normal_ref="refs/heads/release/v${VERSION}"
-          recovery_ref="refs/heads/release/v${VERSION}-recovery"
-          case "$GITHUB_REF" in
-            "$normal_ref")
-              recovery=false
-              branch_output="$(git ls-remote --heads origin "$normal_ref")"
-              if [ "$(awk '{print $1}' <<<"$branch_output")" != "$SOURCE_SHA" ]; then
-                echo "${normal_ref} must point to gated source ${SOURCE_SHA}" >&2
-                exit 1
-              fi
-              ;;
-            "$recovery_ref")
-              recovery=true
-              ;;
-            *)
-              echo "publish requires ${normal_ref} or the version-scoped recovery ref ${recovery_ref}; selected ${GITHUB_REF}" >&2
-              exit 1
-              ;;
-          esac
+          release_ref="refs/heads/release/v${VERSION}"
+          if [ "$GITHUB_REF" != "$release_ref" ]; then
+            echo "publish requires ${release_ref}; selected ${GITHUB_REF}" >&2
+            exit 1
+          fi
+          branch_output="$(git ls-remote --heads origin "$release_ref")"
+          if [ "$(awk '{print $1}' <<<"$branch_output")" != "$SOURCE_SHA" ]; then
+            echo "${release_ref} must point to gated source ${SOURCE_SHA}" >&2
+            exit 1
+          fi
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test "$(tr -d '[:space:]' < VERSION)" = "$VERSION"
           test "$(jq -r .version packages/npm/package.json)" = "$VERSION"
@@ -91,10 +81,6 @@ jobs:
           test "$(jq -r .conclusion <<<"$gate_json")" = "success"
           test "$(jq -r .headSha <<<"$gate_json")" = "$SOURCE_SHA"
           test "$(jq -r .headBranch <<<"$gate_json")" = "release/v${VERSION}"
-          for issue in 9 20; do
-            test "$(gh issue view "$issue" --json state --jq .state)" = "CLOSED"
-          done
-          echo "RECOVERY=$recovery" >> "$GITHUB_ENV"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -185,8 +171,12 @@ jobs:
           version_status=$?
           set -e
 
-          if [ "$package_status" -eq 0 ]; then
-            node - "$RUNNER_TEMP/npm-package.json" <<'NODE'
+          if [ "$package_status" -ne 0 ]; then
+            cat "$RUNNER_TEMP/npm-package.err" >&2
+            cat "$RUNNER_TEMP/npm-package.json" >&2
+            exit 1
+          fi
+          node - "$RUNNER_TEMP/npm-package.json" <<'NODE'
           const fs = require('node:fs');
           const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
           const normalize = (url) => String(url).replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, '');
@@ -194,11 +184,6 @@ jobs:
             throw new Error('qweather-cli is published by an unexpected package owner or repository');
           }
           NODE
-          elif ! is_not_found "$RUNNER_TEMP/npm-package.json"; then
-            cat "$RUNNER_TEMP/npm-package.err" >&2
-            cat "$RUNNER_TEMP/npm-package.json" >&2
-            exit 1
-          fi
 
           if [ "$version_status" -eq 0 ]; then
             node - "$RUNNER_TEMP/npm-version.json" "$VERSION" "$EXPECTED_NPM_INTEGRITY" <<'NODE'
@@ -314,23 +299,9 @@ jobs:
             echo "existing ${tag} does not peel to gated source ${SOURCE_SHA}" >&2
             exit 1
           fi
-          if [ "$TAG_EXISTS" = false ] && [ "$RECOVERY" = true ]; then
-            echo "recovery requires an existing exact annotated tag ${tag}" >&2
-            exit 1
-          fi
-
           load_release
-          if [ "$RELEASE_EXISTS" = false ]; then
-            if [ "$RECOVERY" = true ]; then
-              echo "recovery requires an existing public Release ${tag}" >&2
-              exit 1
-            fi
-          else
+          if [ "$RELEASE_EXISTS" = true ]; then
             verify_release_metadata
-            if [ "$RECOVERY" = true ] && [ "$(jq -r .isDraft "$state")" != false ]; then
-              echo "recovery requires an existing public Release ${tag}" >&2
-              exit 1
-            fi
             verify_existing_assets
             if [ "$(jq -r .isDraft "$state")" = false ] && [ -s "$missing" ]; then
               echo "public Release is missing expected assets and cannot be modified" >&2

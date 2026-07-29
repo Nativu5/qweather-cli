@@ -49,8 +49,7 @@ rebuilding release artifacts or repeating the live QWeather smoke suite. A
 retry supplies the same version, gate run ID, and full source SHA, then checks
 the retained artifact against any existing annotated tag, Release asset
 digests, and npm tarball integrity. Exact state continues; mismatched state
-fails closed. A recovery run for a release created by the old workflow uses the
-documented version-scoped recovery ref and the original passing gate artifact.
+fails closed.
 
 Pull-request CI and `main` push CI run the same gates. They receive no QWeather
 credentials. `go test ./...` does not discover the build-tagged E2E package.
@@ -94,11 +93,10 @@ Provider Body mode, or log successful provider bodies or secrets.
 The normal execution path is the manual `.github/workflows/release-gate.yml`
 workflow on an exact `release/vX.Y.Z` branch and its protected
 `qweather-release-smoke` Environment. Follow the
-[release branch SOP](./release-sop.md) and verify the Environment's reviewer,
-branch policy, and secret names before dispatch. Do not run the suite from a
-PR, a `main` workflow, a schedule, or an unapproved local shell. When an
-approved diagnostic run is necessary, inject the host and key through a
-protected secret source, build the binary first, and run only:
+[release branch SOP](./release-sop.md). Do not run the suite from a PR, a
+`main` workflow, a schedule, or an unapproved local shell. When an approved
+diagnostic run is necessary, inject the host and key through a protected secret
+source, build the binary first, and run only:
 
 ```sh
 export QWEATHER_E2E_BINARY="$PWD/qweather"
