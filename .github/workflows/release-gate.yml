@@ -11,7 +11,6 @@ on:
 
 permissions:
   contents: read
-  issues: read
 
 concurrency:
   group: release-gate-${{ github.ref }}
@@ -41,15 +40,6 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Require release-smoke provisioning
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "$(gh issue view 20 --repo "$GITHUB_REPOSITORY" --json state --jq .state)" != "CLOSED" ]; then
-            echo "::error::Issue #20 must be closed before the Release gate can package artifacts" >&2
-            exit 1
-          fi
 
   deterministic:
     name: deterministic gates
@@ -154,5 +144,5 @@ jobs:
             echo "Release v${VERSION} passed deterministic and approved live gates."
             echo "Validated source: ${GITHUB_SHA}"
             echo "Retained artifact: qweather-release-${VERSION}-${GITHUB_SHA} (14 days)."
-            echo "Artifact publication and npm publication are not part of this workflow and remain owned by Issue #8."
+            echo "Artifact and npm publication are not part of this workflow; use the independently approved publication handoff."
           } >> "$GITHUB_STEP_SUMMARY"

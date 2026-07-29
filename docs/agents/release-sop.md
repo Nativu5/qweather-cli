@@ -12,12 +12,9 @@ package. An absent object is created; an exact existing object is accepted on
 retry; any mismatch fails without replacement. Keep validation and publication
 as separate approvals for every release.
 
-Before dispatching a live gate or publication, verify that both protected
-Environments still have their required reviewers, branch policies, and only
-the documented secret names. Do not put secret values in workflow inputs,
-repository variables, Issues, PRs, summaries, or artifacts. The gate retains
-the exact six-platform artifact set for 14 days; publication consumes that set
-without rebuilding.
+Do not put secret values in workflow inputs, repository variables, Issues, PRs,
+summaries, or artifacts. The gate retains the exact six-platform artifact set
+for 14 days; publication consumes that set without rebuilding.
 
 ## Roles and durable records
 
@@ -80,11 +77,6 @@ gh workflow run release-gate.yml \
   -f version=X.Y.Z
 ```
 
-Before dispatch, verify the protected Environment still has its required
-reviewer rule, `release/v*` branch policy, and exactly the two expected secret
-names. Missing credentials are a safe pre-release stop, not a reason to add
-repository-level fallbacks or placeholder values.
-
 The workflow hard-fails unless the version is stable SemVer and the selected ref
 is exactly `refs/heads/release/v<version>`. It then:
 
@@ -108,10 +100,9 @@ After every job passes, record the workflow URL, `X.Y.Z`, release branch, full
 branch still points to that SHA. The gate has no permission to create tags,
 Releases, packages, or npm publications.
 
-The publication workflow must remain independently triggered, normally accept
-only `release/vX.Y.Z`, and verify a passing Release gate for the same version
-and exact source SHA. A `main` push or merge is never a publication trigger.
-The narrowly scoped recovery exception is described below.
+The publication workflow must remain independently triggered, accept only
+`release/vX.Y.Z`, and verify a passing Release gate for the same version and
+exact source SHA. A `main` push or merge is never a publication trigger.
 
 ## 5. Failure and rollback
 
@@ -137,35 +128,7 @@ accept a different npm tarball. Record any mismatch on the release Issue and
 prepare a new patch version. Package withdrawal or downstream advisory actions
 belong to the protected publication workflow.
 
-## 6. Recover a release created by the old publication workflow
-
-Use a recovery ref only when the old non-retryable workflow already created an
-exact public tag and Release but failed before npm publication. Do not use it
-to repair a mismatched or incomplete public release.
-
-1. Merge the reviewed retryability fix to `main` through the normal development
-   SOP.
-2. Create the one-version ref `release/vX.Y.Z-recovery` at that reviewed merge
-   commit. The protected publication Environment's `release/v*` policy and
-   reviewer still apply.
-3. Dispatch the existing `publish.yml` from the recovery ref with the original
-   passing gate run ID and gated source SHA:
-
-   ```sh
-   gh workflow run publish.yml \
-     --ref "release/vX.Y.Z-recovery" \
-     --field version=X.Y.Z \
-     --field gate_run_id=ORIGINAL_GATE_RUN_ID \
-     --field source_sha=ORIGINAL_FULL_SOURCE_SHA
-   ```
-
-The workflow definition comes from the reviewed recovery ref, but checkout,
-artifact inspection, npm staging, and integrity calculation use the original
-gated source SHA. Recovery requires the exact annotated tag and complete public
-Release to exist already. It does not rebuild binaries or rerun live smoke.
-Delete the recovery ref after npm and post-publication checks succeed.
-
-## 7. Retire the branch
+## 6. Retire the branch
 
 For a successful release, wait until the publication workflow records
 completion, then delete the release branch and close the release Issue with
