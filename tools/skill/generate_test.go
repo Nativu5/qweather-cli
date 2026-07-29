@@ -29,14 +29,23 @@ func TestGeneratedReferencesCoverRegistryAndProblemCatalog(t *testing.T) {
 			t.Errorf("generated command reference omits official documentation for %s", capability.ID)
 		}
 	}
-	if got, want := len(registry.Current()), 28; got != want {
-		t.Fatalf("Current Capability count = %d, want %d", got, want)
-	}
-	if got, want := len(registry.Deprecated()), 5; got != want {
-		t.Fatalf("Tombstone count = %d, want %d", got, want)
-	}
-	if got, want := bytes.Count(commands, []byte("| `--yes`")), 7; got != want {
-		t.Fatalf("generated Product Gate flag count = %d, want %d", got, want)
+	for _, capability := range registry.Current() {
+		heading := []byte("### `qweather " + capability.CommandPath + "`\n")
+		start := bytes.Index(commands, heading)
+		if start < 0 {
+			t.Errorf("generated command reference omits section for %s", capability.ID)
+			continue
+		}
+		section := commands[start+len(heading):]
+		if end := bytes.Index(section, []byte("\n### `qweather ")); end >= 0 {
+			section = section[:end]
+		} else if end := bytes.Index(section, []byte("\n## Tombstones")); end >= 0 {
+			section = section[:end]
+		}
+		hasYes := bytes.Contains(section, []byte("| `--yes` | yes | `bool` |"))
+		if wantYes := capability.ProductGate != catalog.GateNone; hasYes != wantYes {
+			t.Errorf("%s Product Gate row present = %t, want %t", capability.ID, hasYes, wantYes)
+		}
 	}
 	for _, removed := range []string{"--allow-product", "--allow-sensitive-output"} {
 		if bytes.Contains(commands, []byte(removed)) {

@@ -28,6 +28,41 @@ type scriptedDoer struct {
 	requests  []qweather.Request
 }
 
+type recordingCacheStore struct {
+	statusResult     cachepkg.Status
+	clearResult      cachepkg.ClearResult
+	statusErr        error
+	clearErr         error
+	statusEnabled    bool
+	statusSensitive  bool
+	clearCapability  string
+	clearAllProfiles bool
+}
+
+func (*recordingCacheStore) Get(context.Context, cachepkg.Key) (cachepkg.Record, bool, error) {
+	return cachepkg.Record{}, false, nil
+}
+
+func (*recordingCacheStore) Put(context.Context, cachepkg.Key, cachepkg.Record) error {
+	return nil
+}
+
+func (*recordingCacheStore) Delete(context.Context, cachepkg.Key) error {
+	return nil
+}
+
+func (s *recordingCacheStore) Status(_ context.Context, enabled, sensitive bool) (cachepkg.Status, error) {
+	s.statusEnabled = enabled
+	s.statusSensitive = sensitive
+	return s.statusResult, s.statusErr
+}
+
+func (s *recordingCacheStore) Clear(_ context.Context, capabilityID string, allProfiles bool) (cachepkg.ClearResult, error) {
+	s.clearCapability = capabilityID
+	s.clearAllProfiles = allProfiles
+	return s.clearResult, s.clearErr
+}
+
 func (d *scriptedDoer) Do(_ context.Context, request qweather.Request) (qweather.Response, error) {
 	d.requests = append(d.requests, request)
 	index := len(d.requests) - 1
@@ -293,21 +328,7 @@ func TestProductGatePrecedesConfigurationAndNetwork(t *testing.T) {
 	}
 }
 
-func TestProductGateUsesInvocationAcknowledgement(t *testing.T) {
-	for _, id := range []string{"storm.list", "solar.radiation.forecast", "account.finance.summary"} {
-		t.Run(id, func(t *testing.T) {
-			invocation := cli.Invocation{
-				Capability:       capability(t, id),
-				GateAcknowledged: true,
-			}
-			if problem := checkProductGate(invocation); problem != nil {
-				t.Fatalf("acknowledged gate returned %#v", problem)
-			}
-		})
-	}
-}
-
-func TestRuntimeExecutesIssueSevenResponseFamiliesWithAcknowledgement(t *testing.T) {
+func TestRuntimeExecutesGatedResponseFamilies(t *testing.T) {
 	tests := []struct {
 		name        string
 		id          string
@@ -383,6 +404,91 @@ func TestConfigCheckDoesNotCreateProviderClient(t *testing.T) {
 	check := result.(config.CheckResult)
 	if !check.Valid || check.Diagnostics.AuthSource != "test" {
 		t.Fatalf("check = %#v", check)
+	}
+}
+
+func TestCacheControlForwardsConfigurationAndScope(t *testing.T) {
+	effective := testEffective(t)
+	effective.Cache = config.CacheSettings{Enabled: true, Sensitive: true}
+	store := &recordingCacheStore{
+		statusResult: cachepkg.Status{Schema: "qweather.cache-status/v1", Entries: 2},
+		clearResult:  cachepkg.ClearResult{Schema: "qweather.cache-clear/v1", Entries: 2},
+	}
+	var loaded []config.Options
+	runtime := NewWithCache(
+		func(_ context.Context, options config.Options) (config.Effective, config.Diagnostics, error) {
+			loaded = append(loaded, options)
+			return effective, config.Diagnostics{}, nil
+		},
+		nil,
+		func(config.Effective) (CacheStore, error) { return store, nil },
+		nil,
+	)
+	common := cli.CommonOptions{ConfigPath: "config.toml", Profile: "team"}
+	status, problem := runtime.CacheStatus(context.Background(), cli.CacheControlOptions{Common: common})
+	if problem != nil || status != store.statusResult || !store.statusEnabled || !store.statusSensitive {
+		t.Fatalf("status=%#v problem=%#v store=%#v", status, problem, store)
+	}
+	cleared, problem := runtime.CacheClear(context.Background(), cli.CacheControlOptions{
+		Common: common, CapabilityID: "weather.city.current", AllProfiles: true,
+	})
+	if problem != nil || cleared != store.clearResult || store.clearCapability != "weather.city.current" || !store.clearAllProfiles {
+		t.Fatalf("cleared=%#v problem=%#v store=%#v", cleared, problem, store)
+	}
+	if len(loaded) != 2 {
+		t.Fatalf("config loads = %#v", loaded)
+	}
+	for _, options := range loaded {
+		if options.ConfigPath != "config.toml" || options.Profile != "team" {
+			t.Errorf("config options = %#v", options)
+		}
+	}
+}
+
+func TestCacheControlMapsConfigurationAndStoreErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		clear      bool
+		configErr  error
+		factoryErr error
+		storeErr   error
+		wantCode   string
+		wantExit   int
+	}{
+		{name: "status configuration", configErr: errors.New("bad config"), wantCode: string(output.CodeConfigInvalid), wantExit: 3},
+		{name: "status factory", factoryErr: errors.New("open cache"), wantCode: string(output.CodeCacheIOError), wantExit: 10},
+		{name: "status operation", storeErr: errors.New("scan cache"), wantCode: string(output.CodeCacheIOError), wantExit: 10},
+		{name: "clear configuration", clear: true, configErr: errors.New("bad config"), wantCode: string(output.CodeConfigInvalid), wantExit: 3},
+		{name: "clear factory", clear: true, factoryErr: errors.New("open cache"), wantCode: string(output.CodeCacheIOError), wantExit: 10},
+		{name: "clear operation", clear: true, storeErr: errors.New("remove cache"), wantCode: string(output.CodeCacheIOError), wantExit: 10},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store := &recordingCacheStore{}
+			if test.clear {
+				store.clearErr = test.storeErr
+			} else {
+				store.statusErr = test.storeErr
+			}
+			runtime := NewWithCache(
+				func(context.Context, config.Options) (config.Effective, config.Diagnostics, error) {
+					return testEffective(t), config.Diagnostics{}, test.configErr
+				},
+				nil,
+				func(config.Effective) (CacheStore, error) { return store, test.factoryErr },
+				nil,
+			)
+			var result any
+			var problem *output.Problem
+			if test.clear {
+				result, problem = runtime.CacheClear(context.Background(), cli.CacheControlOptions{})
+			} else {
+				result, problem = runtime.CacheStatus(context.Background(), cli.CacheControlOptions{})
+			}
+			if result != nil || problem == nil || problem.Code != test.wantCode || problem.ExitCode != test.wantExit {
+				t.Fatalf("result=%#v problem=%#v", result, problem)
+			}
+		})
 	}
 }
 

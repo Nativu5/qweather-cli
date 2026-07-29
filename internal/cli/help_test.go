@@ -199,14 +199,8 @@ func helpFlagLine(help string, flag catalog.Flag) string {
 }
 
 func expectedSafetyHelp(gate catalog.ProductGate) string {
-	switch gate {
-	case catalog.GateMarine:
-		return "pass --yes to confirm this invocation before network I/O"
-	case catalog.GateSolar:
-		return "pass --yes to confirm this invocation before network I/O"
-	case catalog.GateSensitiveAccount:
-		return "pass --yes to confirm this invocation before network I/O"
-	default:
+	if gate == catalog.GateNone {
 		return ""
 	}
+	return "pass --yes to confirm this invocation before network I/O"
 }

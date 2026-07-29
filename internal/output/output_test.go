@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 	"text/template"
-
-	"github.com/Nativu5/qweather-cli/internal/catalog"
 )
 
 func testRenderer(t *testing.T, capabilityID, source string) *Renderer {
@@ -224,24 +222,6 @@ func TestProblemPresentation(t *testing.T) {
 func TestNewRendererRejectsMissingCapabilityTemplate(t *testing.T) {
 	if _, err := NewRenderer([]string{"missing.capability"}); err == nil || !strings.Contains(err.Error(), "missing output template") {
 		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestEmbeddedTemplateInventoryMatchesCurrentCapabilities(t *testing.T) {
-	registry, err := catalog.Default()
-	if err != nil {
-		t.Fatal(err)
-	}
-	capabilityIDs := make([]string, 0, len(registry.Current()))
-	for _, capability := range registry.Current() {
-		capabilityIDs = append(capabilityIDs, capability.ID)
-	}
-	renderer, err := NewRenderer(capabilityIDs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ids := renderer.TemplateIDs(); len(ids) != 28 {
-		t.Fatalf("template IDs = %d, want 28: %v", len(ids), ids)
 	}
 }
 

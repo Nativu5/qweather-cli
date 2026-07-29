@@ -6,6 +6,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -166,14 +169,7 @@ func TestPackageArtifactsProducesSixArchivesAndOneManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binaries := make(map[string][]byte)
-	for _, target := range supportedReleaseTargets() {
-		binaries[target.GOOS+"/"+target.GOARCH] = []byte(target.GOOS + "/" + target.GOARCH)
-	}
-	artifacts, err := PackageArtifacts(version, binaries, []byte("license\n"), []byte("readme\n"), time.Unix(1_750_000_000, 0).UTC())
-	if err != nil {
-		t.Fatal(err)
-	}
+	artifacts := packagedArtifacts(t, version)
 	wantNames := ReleaseAssetNames(version)
 	if len(artifacts) != len(wantNames) {
 		t.Fatalf("artifacts length = %d, want %d", len(artifacts), len(wantNames))
@@ -191,6 +187,118 @@ func TestPackageArtifactsProducesSixArchivesAndOneManifest(t *testing.T) {
 	if err := VerifyArtifactSet(version, artifacts); err == nil {
 		t.Fatal("VerifyArtifactSet() accepted a corrupted archive")
 	}
+}
+
+func TestRunInspectsArtifactDirectory(t *testing.T) {
+	version, err := ParseStableVersion("1.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputDir := t.TempDir()
+	if err := writeArtifacts(outputDir, packagedArtifacts(t, version)); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	exit := run([]string{"inspect", "--version", "1.2.3", "--output", outputDir}, &stdout, &stderr)
+	want := "release artifacts for v1.2.3 verified in " + outputDir + "\n"
+	if exit != 0 || stdout.String() != want || stderr.Len() != 0 {
+		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout.String(), stderr.String())
+	}
+
+	archive := filepath.Join(outputDir, "qweather-cli_1.2.3_linux_amd64.tar.gz")
+	if err := os.WriteFile(archive, []byte("corrupted"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	exit = run([]string{"inspect", "--version", "1.2.3", "--output", outputDir}, &stdout, &stderr)
+	if exit != 1 || stdout.Len() != 0 || stderr.Len() == 0 {
+		t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout.String(), stderr.String())
+	}
+}
+
+func TestRunRejectsMissingOrUnsupportedCommand(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "missing", want: "usage: release"},
+		{name: "unsupported", args: []string{"publish"}, want: `unknown release command "publish"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if exit := run(test.args, &stdout, &stderr); exit != 2 || stdout.Len() != 0 || !strings.Contains(stderr.String(), test.want) {
+				t.Fatalf("exit=%d stdout=%q stderr=%q", exit, stdout.String(), stderr.String())
+			}
+		})
+	}
+}
+
+func TestCompareArtifactsDetectsMissingOrChangedData(t *testing.T) {
+	first := map[string][]byte{"a": []byte("same"), "b": []byte("original")}
+	tests := []struct {
+		name   string
+		second map[string][]byte
+		want   string
+	}{
+		{name: "missing", second: map[string][]byte{"a": []byte("same"), "c": []byte("extra")}, want: "missing b"},
+		{name: "changed", second: map[string][]byte{"a": []byte("same"), "b": []byte("changed")}, want: "bytes differ for b"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := compareArtifacts(first, test.second); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("compareArtifacts() error = %v, want containing %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestEnvironmentWithReplacesValuesAndSortsOverrides(t *testing.T) {
+	got := environmentWith(
+		[]string{"PATH=/bin", "GOOS=old", "NOVALUE", "GOARCH=old"},
+		map[string]string{"GOOS": "linux", "GOARCH": "arm64"},
+	)
+	want := []string{"PATH=/bin", "NOVALUE", "GOARCH=arm64", "GOOS=linux"}
+	if !equalStrings(got, want) {
+		t.Fatalf("environmentWith() = %#v, want %#v", got, want)
+	}
+}
+
+func TestWriteArtifactsWritesExpectedSetAndRejectsUnexpectedFiles(t *testing.T) {
+	artifacts := map[string][]byte{"b.txt": []byte("second"), "a.txt": []byte("first")}
+	outputDir := t.TempDir()
+	if err := writeArtifacts(outputDir, artifacts); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range artifacts {
+		got, err := os.ReadFile(filepath.Join(outputDir, name))
+		if err != nil || !bytes.Equal(got, want) {
+			t.Fatalf("read %s = %q, %v", name, got, err)
+		}
+	}
+
+	outputDir = t.TempDir()
+	if err := os.WriteFile(filepath.Join(outputDir, "unexpected.txt"), []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeArtifacts(outputDir, artifacts); err == nil || !strings.Contains(err.Error(), "unexpected file unexpected.txt") {
+		t.Fatalf("writeArtifacts() error = %v", err)
+	}
+}
+
+func packagedArtifacts(t *testing.T, version Version) map[string][]byte {
+	t.Helper()
+	binaries := make(map[string][]byte)
+	for _, target := range supportedReleaseTargets() {
+		binaries[target.GOOS+"/"+target.GOARCH] = []byte(target.GOOS + "/" + target.GOARCH)
+	}
+	artifacts, err := PackageArtifacts(version, binaries, []byte("license\n"), []byte("readme\n"), time.Unix(1_750_000_000, 0).UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return artifacts
 }
 
 func equalStrings(got, want []string) bool {
